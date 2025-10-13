@@ -636,7 +636,7 @@
             let html = '';
             
             // Request headers
-            if (profilerData.request_headers) {
+            if (profilerData.request_headers && Object.keys(profilerData.request_headers).length > 0) {
                 html += '<h3 style="color: #f3f4f6; margin-bottom: 12px;">Headers</h3>';
                 html += '<table class="data-table"><thead><tr><th>Header</th><th>Value</th></tr></thead><tbody>';
                 for (const [key, value] of Object.entries(profilerData.request_headers)) {
@@ -645,16 +645,64 @@
                 html += '</tbody></table>';
             }
             
-            // Request parameters
-            if (profilerData.request_params) {
-                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Parameters</h3>';
-                html += '<div class="code-block">' + escapeHtml(JSON.stringify(profilerData.request_params, null, 2)) + '</div>';
+            // Query parameters
+            if (profilerData.request_query && Object.keys(profilerData.request_query).length > 0) {
+                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Query Parameters</h3>';
+                html += '<table class="data-table"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>';
+                for (const [key, value] of Object.entries(profilerData.request_query)) {
+                    html += `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            
+            // POST parameters
+            if (profilerData.request_params && Object.keys(profilerData.request_params).length > 0) {
+                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">POST Parameters</h3>';
+                html += '<table class="data-table"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody>';
+                for (const [key, value] of Object.entries(profilerData.request_params)) {
+                    html += `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`;
+                }
+                html += '</tbody></table>';
             }
             
             // Request body
             if (profilerData.request_body) {
-                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Body</h3>';
-                html += '<div class="code-block">' + escapeHtml(JSON.stringify(profilerData.request_body, null, 2)) + '</div>';
+                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Request Body</h3>';
+                const bodyContent = typeof profilerData.request_body === 'string' 
+                    ? profilerData.request_body 
+                    : JSON.stringify(profilerData.request_body, null, 2);
+                html += '<div class="code-block">' + escapeHtml(bodyContent) + '</div>';
+            }
+            
+            // Cookies
+            if (profilerData.request_cookies && Object.keys(profilerData.request_cookies).length > 0) {
+                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Cookies</h3>';
+                html += '<table class="data-table"><thead><tr><th>Cookie</th><th>Value</th></tr></thead><tbody>';
+                for (const [key, value] of Object.entries(profilerData.request_cookies)) {
+                    html += `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            
+            // Uploaded files
+            if (profilerData.request_files && Object.keys(profilerData.request_files).length > 0) {
+                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Uploaded Files</h3>';
+                html += '<table class="data-table"><thead><tr><th>Field</th><th>Name</th><th>Type</th><th>Size</th></tr></thead><tbody>';
+                for (const [key, file] of Object.entries(profilerData.request_files)) {
+                    const size = file.size ? (file.size / 1024).toFixed(2) + ' KB' : 'N/A';
+                    html += `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(file.name || 'N/A')}</td><td>${escapeHtml(file.type || 'N/A')}</td><td>${size}</td></tr>`;
+                }
+                html += '</tbody></table>';
+            }
+            
+            // Server variables
+            if (profilerData.request_server && Object.keys(profilerData.request_server).length > 0) {
+                html += '<h3 style="color: #f3f4f6; margin: 24px 0 12px;">Server Variables</h3>';
+                html += '<table class="data-table"><thead><tr><th>Variable</th><th>Value</th></tr></thead><tbody>';
+                for (const [key, value] of Object.entries(profilerData.request_server)) {
+                    html += `<tr><td>${escapeHtml(key)}</td><td>${escapeHtml(String(value))}</td></tr>`;
+                }
+                html += '</tbody></table>';
             }
             
             if (!html) {
