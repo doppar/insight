@@ -1,0 +1,16 @@
+name: static analysis
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - '*.x'
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    uses: doppar/.github/.github/workflows/static-analysis.yml@main
