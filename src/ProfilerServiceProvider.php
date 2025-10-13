@@ -10,7 +10,8 @@ class ProfilerServiceProvider extends ServiceProvider
     {
         $this->app->singleton(Profiler::class, function () {
             $cfg = config('profiler') ?? [];
-            $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage());
+            $retentionDays = is_array($cfg) ? ($cfg['retention_days'] ?? 1) : 1;
+            $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage(null, $retentionDays));
             // Register default collectors
             $profiler->addCollector(new \Doppar\Insight\Collectors\TimeMemoryCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\HttpCollector());

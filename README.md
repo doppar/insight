@@ -25,10 +25,25 @@ composer require doppar/insight
 
 ```php
 "providers" => [
-    ...
+    // ...
     Doppar\Insight\ProfilerServiceProvider::class,
 ],
 ```
+
+### Cache Retention
+
+The profiler automatically stores request data as JSON files in `storage/framework/profiler`. To prevent disk space issues, old files are automatically deleted after 1 days by default.
+
+You can customize the retention period in your `config/profiler.php`:
+
+```php
+return [
+    // ...
+    'retention_days' => 30,
+];
+```
+
+The cleanup runs automatically once per hour when new profiler data is stored.
 
 ## Contributing
 
