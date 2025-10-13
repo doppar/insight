@@ -13,6 +13,7 @@ class ProfilerServiceProvider extends ServiceProvider
             $retentionDays = is_array($cfg) ? ($cfg['retention_days'] ?? 1) : 1;
             $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage(null, $retentionDays));
             // Register default collectors
+            $profiler->addCollector(new \Doppar\Insight\Collectors\DopparCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\TimeMemoryCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\HttpCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\SqlCollector());
