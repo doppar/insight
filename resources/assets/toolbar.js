@@ -18,12 +18,16 @@ window.DopparProfiler = {
     }
     return host.shadowRoot;
   },
+  openDetailsPage(){
+    const id = document.getElementById('doppar-profiler').dataset.requestId;
+    window.open('/_insight/' + id, '_blank');
+  },
   toggle(){
     this.open = !this.open;
     const root = this.ensurePanelRoot();
     if(this.open){
       const id = document.getElementById('doppar-profiler').dataset.requestId;
-      fetch('/_profiler/' + id).then(r=>r.json()).then(data=>{
+      fetch('/_insight/api/' + id).then(r=>r.json()).then(data=>{
         // Shadow DOM content
         const css = `
           :host{all:initial}
@@ -180,6 +184,23 @@ window.DopparProfiler = {
           }
         }
         
+        // Build auth section
+        let authSection = '';
+        if (data.auth_authenticated) {
+          const userName = data.auth_user_name || 'User';
+          const userEmail = data.auth_user_email || '';
+          authSection = `
+            <div class="section">
+              <div class="section-title">
+                <span>Authentication</span>
+                <span class="badge badge-success">Authenticated</span>
+              </div>
+              <div class="row"><span class="key">User:</span> <span class="val">${userName}</span></div>
+              ${userEmail ? `<div class="row"><span class="key">Email:</span> <span class="val">${userEmail}</span></div>` : ''}
+            </div>
+          `;
+        }
+        
         wrap.innerHTML = `
           <div class="section">
             <div class="section-title">Request Information</div>
@@ -191,6 +212,7 @@ window.DopparProfiler = {
             <div class="row"><span class="key">Duration:</span> <span class="val">${(data.duration_ms?.toFixed?.(1) ?? data.duration_ms)} ms</span></div>
             <div class="row"><span class="key">Memory Peak:</span> <span class="val">${((data.memory_peak || 0) / (1024*1024)).toFixed(2)} MB</span></div>
           </div>
+          ${authSection}
           ${redirectChainSection}
           ${sqlSection}
         `;

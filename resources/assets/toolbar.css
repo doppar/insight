@@ -66,6 +66,16 @@
   font-weight: 500;
 }
 
+.dp-auth{
+  color: #34d399;
+  font-weight: 500;
+}
+
+.dp-auth-name{
+  color: #6ee7b7;
+  font-weight: 600;
+}
+
 .dp-left{ min-width: 0; }
 .dp-left .dp-item:last-child{
   display: inline-block;

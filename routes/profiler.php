@@ -2,10 +2,12 @@
 
 use Phaseolies\Http\Request;
 use Doppar\Insight\Profiler;
+use Doppar\Insight\Controllers\ProfilerController;
 
 $router = app('route');
 
-$router->get('/_profiler/{id}', function (Request $request) {
+// API endpoint for JSON data (used by toolbar panel)
+$router->get('/_insight/api/{id}', function (Request $request) {
     /** @var Profiler $profiler */
     $profiler = app(Profiler::class);
 
@@ -25,3 +27,6 @@ $router->get('/_profiler/{id}', function (Request $request) {
 
     return $data;
 });
+
+// Full details page with tabs
+$router->get('/_insight/{id}', [ProfilerController::class, 'show']);

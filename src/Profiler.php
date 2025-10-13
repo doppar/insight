@@ -125,9 +125,9 @@ class Profiler
     public function getRedirectChain(): array
     {
         if (session_status() === PHP_SESSION_ACTIVE || session_start()) {
-            $chain = $_SESSION['_profiler_redirect_chain'] ?? [];
+            $chain = $_SESSION['_insight_redirect_chain'] ?? [];
             // Clear the chain after retrieving it
-            unset($_SESSION['_profiler_redirect_chain']);
+            unset($_SESSION['_insight_redirect_chain']);
             return $chain;
         }
         return [];
@@ -185,6 +185,11 @@ class Profiler
         $frameworkVersion = htmlspecialchars($d['framework_version'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
         $phpVersion = htmlspecialchars($d['php_version'] ?? PHP_VERSION, ENT_QUOTES, 'UTF-8');
         
+        // Auth data
+        $authAuthenticated = ($d['auth_authenticated'] ?? false) ? 'true' : 'false';
+        $authUserName = htmlspecialchars($d['auth_user_name'] ?? 'Guest', ENT_QUOTES, 'UTF-8');
+        $authUserEmail = htmlspecialchars($d['auth_user_email'] ?? '', ENT_QUOTES, 'UTF-8');
+        
         $replacements = [
             '{{CSS}}' => $css,
             '{{JS}}' => $js,
@@ -200,6 +205,9 @@ class Profiler
             '{{IS_REDIRECT}}' => $isRedirect,
             '{{REDIRECT_URL}}' => $redirectUrl,
             '{{REDIRECT_CHAIN}}' => htmlspecialchars($redirectChainJson, ENT_QUOTES, 'UTF-8'),
+            '{{AUTH_AUTHENTICATED}}' => $authAuthenticated,
+            '{{AUTH_USER_NAME}}' => $authUserName,
+            '{{AUTH_USER_EMAIL}}' => $authUserEmail,
         ];
 
         return strtr($template, $replacements);

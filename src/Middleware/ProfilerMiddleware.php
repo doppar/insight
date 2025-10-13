@@ -18,6 +18,12 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
             return $next($request);
         }
 
+        // Skip profiling for profiler routes themselves
+        $path = $request->getPath();
+        if (str_starts_with($path, '/_insight')) {
+            return $next($request);
+        }
+
         $profiler->start($request);
         $response = $next($request);
         $profiler->stop($request, $response);
@@ -27,8 +33,8 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
         if ($status >= 300 && $status < 400) {
             $redirectData = $profiler->getCurrentData();
             if (session_status() === PHP_SESSION_ACTIVE || session_start()) {
-                $_SESSION['_profiler_redirect_chain'] = $_SESSION['_profiler_redirect_chain'] ?? [];
-                $_SESSION['_profiler_redirect_chain'][] = $redirectData;
+                $_SESSION['_insight_redirect_chain'] = $_SESSION['_insight_redirect_chain'] ?? [];
+                $_SESSION['_insight_redirect_chain'][] = $redirectData;
             }
         }
 
