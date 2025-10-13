@@ -3,6 +3,15 @@
   "description": "Doppar/Insight is a developer profiling and debugging toolbar for Doppar framework",
   "type": "library",
   "license": "MIT",
+  "support": {
+    "issues": "https://github.com/doppar/insight/issues",
+    "source": "https://github.com/doppar/insight"
+  },
+  "authors": [
+        {
+            "name": "Pierre Svgnt"
+        }
+    ],
   "autoload": {
     "psr-4": {
       "Doppar\\Insight\\": "src/"
@@ -17,5 +26,7 @@
         "Doppar\\Insight\\ProfilerServiceProvider"
       ]
     }
-  }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true
 }
