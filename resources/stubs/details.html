@@ -47,6 +47,7 @@
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="overview">Overview</button>
                 <button class="tab-button" data-tab="database">Database</button>
+                <button class="tab-button" data-tab="cache">Cache</button>
                 <button class="tab-button" data-tab="auth">Auth</button>
                 <button class="tab-button" data-tab="request">Request</button>
                 <button class="tab-button" data-tab="response">Response</button>
@@ -74,6 +75,11 @@
                             <span class="badge badge-success">{{SQL_TOTAL_TIME}} ms</span>
                         </div>
                         <div id="overview-sql-summary"></div>
+                    </div>
+                    
+                    <div class="section">
+                        <div class="section-title">Cache Operations</div>
+                        <div id="overview-cache-summary"></div>
                     </div>
                 </div>
                 
@@ -118,6 +124,14 @@
                     <div class="section">
                         <div class="section-title">Performance Metrics</div>
                         <div id="performance-metrics"></div>
+                    </div>
+                </div>
+                
+                <!-- Cache Tab -->
+                <div class="tab-pane" id="cache">
+                    <div class="section">
+                        <div class="section-title">Cache Operations</div>
+                        <div id="cache-operations-list"></div>
                     </div>
                 </div>
                 

@@ -1,0 +1,139 @@
+.cache-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.cache-stat-card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.cache-stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #34d399;
+    margin-bottom: 4px;
+}
+
+.cache-stat-label {
+    font-size: 12px;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cache-list {
+    margin-top: 12px;
+}
+
+.cache-item {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.cache-item:last-child {
+    margin-bottom: 0;
+}
+
+.cache-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cache-type {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.cache-type-get {
+    background: #1e40af;
+    color: #93c5fd;
+}
+
+.cache-type-set {
+    background: #065f46;
+    color: #6ee7b7;
+}
+
+.cache-type-delete {
+    background: #991b1b;
+    color: #fca5a5;
+}
+
+.cache-type-has {
+    background: #7c2d12;
+    color: #fdba74;
+}
+
+.cache-type-increment,
+.cache-type-decrement {
+    background: #4c1d95;
+    color: #c4b5fd;
+}
+
+.cache-type-forever {
+    background: #065f46;
+    color: #6ee7b7;
+}
+
+.cache-type-forget {
+    background: #991b1b;
+    color: #fca5a5;
+}
+
+.cache-key {
+    color: #e5e7eb;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    word-break: break-all;
+    background: #0f172a;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.cache-value {
+    font-size: 12px;
+    color: #9ca3af;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    background: #0f172a;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.cache-hit-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.cache-hit {
+    background: #065f46;
+    color: #6ee7b7;
+}
+
+.cache-miss {
+    background: #991b1b;
+    color: #fca5a5;
+}
