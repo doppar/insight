@@ -9,6 +9,8 @@
         <span class="dp-item">{{METHOD}} {{PATH}}</span>
       </div>
       <div class="dp-right">
+        <span class="dp-item dp-version"> PHP {{PHP_VERSION}}</span>
+        <span class="dp-item dp-version"><img src="https://doppar.com/logo.png" alt="Doppar Logo" width="16" height="16"> v{{FRAMEWORK_VERSION}}</span>
         <span class="dp-item">{{DURATION}} ms</span>
         <span class="dp-item dp-sql">🗄️ {{SQL_COUNT}} queries ({{SQL_TIME}} ms)</span>
         <button class="dp-btn" onclick="DopparProfiler.toggle()">Details</button>

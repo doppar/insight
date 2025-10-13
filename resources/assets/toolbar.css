@@ -29,6 +29,13 @@
   gap: 10px;
 }
 
+.dp-right .dp-item:not(:last-child)::after{
+  content: '|';
+  margin-left: 10px;
+  color: rgba(107, 114, 128, 0.5);
+  font-weight: 300;
+}
+
 .dp-item{
   all: unset;
   color: #e5e7eb;
@@ -38,6 +45,20 @@
 .dp-sql{
   color: #34d399;
   font-weight: 500;
+}
+
+.dp-version{
+  color: #a78bfa;
+  font-weight: 500;
+  font-size: 11px;
+  opacity: .8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dp-version img{
+  vertical-align: middle;
 }
 
 .dp-redirect{

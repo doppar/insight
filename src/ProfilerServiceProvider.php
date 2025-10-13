@@ -12,6 +12,7 @@ class ProfilerServiceProvider extends ServiceProvider
             $cfg = config('profiler') ?? [];
             $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage());
             // Register default collectors
+            $profiler->addCollector(new \Doppar\Insight\Collectors\DopparCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\TimeMemoryCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\HttpCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\SqlCollector());

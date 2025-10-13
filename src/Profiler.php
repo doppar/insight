@@ -182,6 +182,9 @@ class Profiler
             return '';
         }
 
+        $frameworkVersion = htmlspecialchars($d['framework_version'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
+        $phpVersion = htmlspecialchars($d['php_version'] ?? PHP_VERSION, ENT_QUOTES, 'UTF-8');
+        
         $replacements = [
             '{{CSS}}' => $css,
             '{{JS}}' => $js,
@@ -192,6 +195,8 @@ class Profiler
             '{{DURATION}}' => $duration,
             '{{SQL_COUNT}}' => (string)$sqlCount,
             '{{SQL_TIME}}' => $sqlTime,
+            '{{FRAMEWORK_VERSION}}' => $frameworkVersion,
+            '{{PHP_VERSION}}' => $phpVersion,
             '{{IS_REDIRECT}}' => $isRedirect,
             '{{REDIRECT_URL}}' => $redirectUrl,
             '{{REDIRECT_CHAIN}}' => htmlspecialchars($redirectChainJson, ENT_QUOTES, 'UTF-8'),
