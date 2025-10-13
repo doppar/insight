@@ -18,6 +18,7 @@ class ProfilerServiceProvider extends ServiceProvider
             $profiler->addCollector(new \Doppar\Insight\Collectors\HttpCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\SqlCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\AuthCollector());
+            $profiler->addCollector(new \Doppar\Insight\Collectors\RequestCollector());
             return $profiler;
         });
     }
