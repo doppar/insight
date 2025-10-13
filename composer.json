@@ -1,0 +1,21 @@
+{
+  "name": "doppar/insight",
+  "description": "Doppar/Insight is a developer profiling and debugging toolbar for Doppar framework",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Doppar\\Insight\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.1"
+  },
+  "extra": {
+    "doppar": {
+      "providers": [
+        "Doppar\\Insight\\ProfilerServiceProvider"
+      ]
+    }
+  }
+}

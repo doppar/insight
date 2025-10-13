@@ -1,0 +1,96 @@
+:host{
+  all: initial;
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  color: #e5e7eb;
+  font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  z-index: 2147483647;
+  box-sizing: border-box;
+}
+
+.dp-root{
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(17, 24, 39, 0.75); /* slate-900 @ 75% */
+  backdrop-filter: saturate(150%) blur(8px);
+  border-top: 1px solid rgba(55, 65, 81, 0.65);
+  box-shadow: 0 -2px 24px rgba(0,0,0,.25);
+  box-sizing: border-box;
+}
+
+.dp-left, .dp-right{
+  all: unset;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dp-item{
+  all: unset;
+  color: #e5e7eb;
+  opacity: .95;
+}
+
+.dp-sql{
+  color: #34d399;
+  font-weight: 500;
+}
+
+.dp-redirect{
+  color: #60a5fa;
+  font-weight: 500;
+}
+
+.dp-left{ min-width: 0; }
+.dp-left .dp-item:last-child{
+  display: inline-block;
+  max-width: 60vw; /* prevent overflow */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dp-badge{
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.15); /* emerald-500 tint */
+  color: #34d399; /* emerald-400 */
+  border: 1px solid rgba(16,185,129,.35);
+  font-weight: 600;
+}
+
+.dp-badge-warning{
+  background: rgba(255, 165, 0, 0.15); /* orange-500 tint */
+  color: #f59e0b; /* orange-400 */
+  border: 1px solid rgba(255,165,0,.35);
+}
+
+.dp-btn{
+  all: unset;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #e5e7eb;
+  background: linear-gradient(180deg, rgba(31,41,55,.9), rgba(17,24,39,.9));
+  border: 1px solid rgba(75,85,99,.6);
+  box-shadow: 0 2px 8px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.04);
+  transition: transform .08s ease, background .2s ease, border-color .2s ease;
+}
+
+.dp-btn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(107,114,128,.8);
+}
+
+.dp-btn:active{
+  transform: translateY(0);
+}

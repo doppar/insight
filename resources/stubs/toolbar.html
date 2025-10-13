@@ -1,0 +1,41 @@
+<!-- Doppar Profiler (Shadow DOM isolated) -->
+<div id="doppar-profiler" data-request-id="{{ID}}" data-is-redirect="{{IS_REDIRECT}}" data-redirect-url="{{REDIRECT_URL}}" data-redirect-chain="{{REDIRECT_CHAIN}}">
+  <template id="dp-template">
+    <style>{{CSS}}</style>
+    <div class="dp-root">
+      <div class="dp-left">
+        <span class="dp-badge">{{STATUS}}</span>
+        <span class="dp-badge dp-badge-warning dp-redirect" style="display:none">Redirect</span>
+        <span class="dp-item">{{METHOD}} {{PATH}}</span>
+      </div>
+      <div class="dp-right">
+        <span class="dp-item">{{DURATION}} ms</span>
+        <span class="dp-item dp-sql">🗄️ {{SQL_COUNT}} queries ({{SQL_TIME}} ms)</span>
+        <button class="dp-btn" onclick="DopparProfiler.toggle()">Details</button>
+      </div>
+    </div>
+  </template>
+  <script>(function(){
+    try{
+      var host=document.getElementById('doppar-profiler');
+      if(!host||host.shadowRoot){return}
+      var root=host.attachShadow({mode:'open'});
+      var tpl=host.querySelector('#dp-template');
+      if(tpl&&tpl.content){ root.appendChild(tpl.content.cloneNode(true)); }
+      host.textContent='';
+      // Show redirect indicator if there's a redirect chain
+      var chainData = host.dataset.redirectChain;
+      if(chainData && chainData !== '[]'){
+        var redirectEl=root.querySelector('.dp-redirect');
+        if(redirectEl){redirectEl.style.display='inline-block';}
+      }
+      // Also show if current request is a redirect
+      if(host.dataset.isRedirect==='true'){
+        var redirectEl=root.querySelector('.dp-redirect');
+        if(redirectEl){redirectEl.style.display='inline-block';}
+      }
+    }catch(e){}
+  })();</script>
+</div>
+<script>{{JS}}</script>
+<!-- /Doppar Profiler -->
