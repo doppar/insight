@@ -1,0 +1,14 @@
+.auth-authenticated {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.auth-guest {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+    color: #9ca3af;
+}

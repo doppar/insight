@@ -1,0 +1,13 @@
+.redirect-info {
+    background: rgba(30, 58, 138, 0.15);
+    border-left: 3px solid #3b82f6;
+    padding: 12px;
+    margin: 12px 0;
+    border-radius: 6px;
+}
+
+.redirect-url {
+    color: #60a5fa;
+    font-weight: 600;
+    word-break: break-all;
+}
