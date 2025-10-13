@@ -36,6 +36,11 @@ class ProfilerController
             return '<html><body>Details page template not found</body></html>';
         }
 
+        // Build CSS and JS using AssetBuilder
+        $builder = new \Doppar\Insight\AssetBuilder();
+        $css = $builder->buildCss();
+        $js = $builder->buildJs();
+
         // Prepare data for template
         $id = htmlspecialchars($data['id'] ?? '', ENT_QUOTES, 'UTF-8');
         $method = htmlspecialchars($data['method'] ?? '', ENT_QUOTES, 'UTF-8');
@@ -50,14 +55,12 @@ class ProfilerController
         $sqlTotalCount = (int)($data['sql_total_count'] ?? 0);
         $sqlTotalTime = number_format($data['sql_total_time_ms'] ?? 0, 2);
         
-        // Redirect data
-        $isRedirect = ($data['is_redirect'] ?? false);
-        $redirectUrl = htmlspecialchars($data['redirect_url'] ?? '', ENT_QUOTES, 'UTF-8');
-        
         // Encode data as JSON for JavaScript
         $dataJson = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
         $replacements = [
+            '{{CSS}}' => $css,
+            '{{JS}}' => $js,
             '{{ID}}' => $id,
             '{{METHOD}}' => $method,
             '{{ROUTE}}' => $route,
@@ -68,8 +71,6 @@ class ProfilerController
             '{{PHP_VERSION}}' => $phpVersion,
             '{{SQL_TOTAL_COUNT}}' => (string)$sqlTotalCount,
             '{{SQL_TOTAL_TIME}}' => $sqlTotalTime,
-            '{{IS_REDIRECT}}' => $isRedirect ? 'true' : 'false',
-            '{{REDIRECT_URL}}' => $redirectUrl,
             '{{DATA_JSON}}' => $dataJson,
         ];
 

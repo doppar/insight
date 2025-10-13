@@ -25,7 +25,6 @@ class AuthCollector implements CollectorInterface
             'user_name' => null,
             'user_email' => null,
             'guard' => null,
-            'session_data' => [],
         ];
 
         // Check if user is authenticated using Auth facade
@@ -48,14 +47,6 @@ class AuthCollector implements CollectorInterface
         } catch (\Exception $e) {
             // Silently fail if Auth facade is not available or throws an error
         }
-
-        // Collect session data if available
-        if (session_status() === PHP_SESSION_ACTIVE || @session_start()) {
-            // Collect relevant session data (excluding sensitive info)
-            $sessionData = $_SESSION;
-            unset($sessionData['password'], $sessionData['_token']);
-            $this->data['session_data'] = $sessionData;
-        }
     }
 
     public function stop(Request $request, Response $response): void
@@ -72,7 +63,6 @@ class AuthCollector implements CollectorInterface
             'auth_user_email' => $this->data['user_email'],
             'auth_user' => $this->data['user'],
             'auth_guard' => $this->data['guard'],
-            'auth_session_data' => $this->data['session_data'],
         ];
     }
 }

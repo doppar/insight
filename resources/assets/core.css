@@ -1,0 +1,239 @@
+/* Core Styles - Global layout and utilities */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    background: #0f172a;
+    color: #e5e7eb;
+    line-height: 1.6;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Header */
+.header {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+
+.header-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #f3f4f6;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-label {
+    color: #9ca3af;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    color: #e5e7eb;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.badge-info {
+    background: #1e3a8a;
+    color: #93c5fd;
+}
+
+.badge-success {
+    background: #065f46;
+    color: #6ee7b7;
+}
+
+.badge-warning {
+    background: #78350f;
+    color: #fcd34d;
+}
+
+.badge-error {
+    background: #7f1d1d;
+    color: #fca5a5;
+}
+
+/* Tabs */
+.tabs {
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+
+.tab-nav {
+    display: flex;
+    background: #1f2937;
+    border-bottom: 1px solid #374151;
+    overflow-x: auto;
+}
+
+.tab-button {
+    padding: 16px 24px;
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+}
+
+.tab-button:hover {
+    color: #e5e7eb;
+    background: rgba(55, 65, 81, 0.3);
+}
+
+.tab-button.active {
+    color: #60a5fa;
+    border-bottom-color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+}
+
+.tab-content {
+    padding: 24px;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Sections */
+.section {
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #374151;
+}
+
+.section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.section-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: #f3f4f6;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Rows */
+.row {
+    margin: 10px 0;
+    display: flex;
+    align-items: baseline;
+}
+
+.key {
+    color: #9ca3af;
+    display: inline-block;
+    min-width: 140px;
+    font-weight: 500;
+}
+
+.val {
+    color: #e5e7eb;
+    flex: 1;
+    word-break: break-word;
+}
+
+/* Tables */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+}
+
+.data-table th {
+    background: #1f2937;
+    color: #9ca3af;
+    font-weight: 600;
+    text-align: left;
+    padding: 12px;
+    border: 1px solid #374151;
+    font-size: 13px;
+}
+
+.data-table td {
+    padding: 12px;
+    border: 1px solid #374151;
+    color: #e5e7eb;
+    font-size: 13px;
+}
+
+.data-table tr:hover {
+    background: rgba(31, 41, 55, 0.5);
+}
+
+/* Code blocks */
+.code-block {
+    background: #0f172a;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: #e5e7eb;
+}
+
+/* Utilities */
+.no-data {
+    color: #6b7280;
+    font-style: italic;
+    font-size: 14px;
+    padding: 20px;
+    text-align: center;
+}

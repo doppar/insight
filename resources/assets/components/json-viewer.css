@@ -1,0 +1,137 @@
+/* JSON Viewer Component */
+.json-viewer {
+    background: #0f172a;
+    border: 1px solid #374151;
+    border-radius: 8px;
+    padding: 16px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    overflow-x: auto;
+}
+
+.json-line {
+    display: flex;
+    align-items: flex-start;
+    padding: 2px 0;
+}
+
+.json-line:hover {
+    background: rgba(55, 65, 81, 0.3);
+}
+
+.json-toggle {
+    cursor: pointer;
+    color: #9ca3af;
+    margin-right: 8px;
+    user-select: none;
+    min-width: 16px;
+    text-align: center;
+}
+
+.json-toggle:hover {
+    color: #60a5fa;
+}
+
+.json-toggle.collapsed::before {
+    content: '▶';
+}
+
+.json-toggle.expanded::before {
+    content: '▼';
+}
+
+.json-key {
+    color: #93c5fd;
+    font-weight: 600;
+}
+
+.json-string {
+    color: #6ee7b7;
+}
+
+.json-number {
+    color: #fbbf24;
+}
+
+.json-boolean {
+    color: #c084fc;
+}
+
+.json-null {
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.json-bracket {
+    color: #e5e7eb;
+    font-weight: bold;
+}
+
+.json-comma {
+    color: #9ca3af;
+}
+
+.json-colon {
+    color: #9ca3af;
+    margin: 0 4px;
+}
+
+.json-indent {
+    display: inline-block;
+    width: 20px;
+}
+
+.json-collapsed {
+    display: none;
+}
+
+.json-ellipsis {
+    color: #9ca3af;
+    margin-left: 4px;
+}
+
+.json-count {
+    color: #9ca3af;
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+/* Copy button */
+.json-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #374151;
+}
+
+.json-title {
+    color: #f3f4f6;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.json-copy-btn {
+    background: #1f2937;
+    border: 1px solid #374151;
+    color: #9ca3af;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.json-copy-btn:hover {
+    background: #374151;
+    color: #e5e7eb;
+    border-color: #4b5563;
+}
+
+.json-copy-btn.copied {
+    background: #065f46;
+    color: #6ee7b7;
+    border-color: #10b981;
+}
