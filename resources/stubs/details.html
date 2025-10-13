@@ -46,6 +46,7 @@
         <div class="tabs">
             <div class="tab-nav">
                 <button class="tab-button active" data-tab="overview">Overview</button>
+                <button class="tab-button" data-tab="http">HTTP</button>
                 <button class="tab-button" data-tab="database">Database</button>
                 <button class="tab-button" data-tab="cache">Cache</button>
                 <button class="tab-button" data-tab="auth">Auth</button>
@@ -81,6 +82,11 @@
                         <div class="section-title">Cache Operations</div>
                         <div id="overview-cache-summary"></div>
                     </div>
+                </div>
+                
+                <!-- HTTP Tab -->
+                <div class="tab-pane" id="http">
+                    <div id="http-details"></div>
                 </div>
                 
                 <!-- Database Tab -->
@@ -151,6 +157,13 @@
         
         // Initialize with server data
         const profilerData = {{DATA_JSON}};
+        
+        // Store redirect chain in a data attribute for HTTP component
+        const redirectChain = {{REDIRECT_CHAIN_JSON}};
+        if (redirectChain && redirectChain.length > 0) {
+            document.body.setAttribute('data-redirect-chain', JSON.stringify(redirectChain));
+        }
+        
         DopparInsight.init(profilerData);
     </script>
 </body>

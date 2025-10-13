@@ -98,6 +98,20 @@ class Profiler
             'status' => $response->getStatusCode(),
             'content_type' => $response->headers->get('Content-Type') ?? '',
         ];
+        
+        // Get and store redirect chain with the profiler data (don't clear session yet)
+        $redirectChain = $this->getRedirectChain(false);
+        if (!empty($redirectChain)) {
+            $this->data['redirect_chain'] = $redirectChain;
+            
+            // Calculate total duration including all redirects
+            $totalDuration = $this->data['duration_ms'] ?? 0;
+            foreach ($redirectChain as $redirect) {
+                $totalDuration += $redirect['duration_ms'] ?? 0;
+            }
+            $this->data['total_duration_ms'] = $totalDuration;
+            $this->data['redirect_count'] = count($redirectChain);
+        }
 
         // Store in-memory for same-request usage
         self::$storage[$this->requestId] = $this->data;
@@ -122,12 +136,14 @@ class Profiler
         return $this->data;
     }
 
-    public function getRedirectChain(): array
+    public function getRedirectChain(bool $clear = false): array
     {
         if (session_status() === PHP_SESSION_ACTIVE || session_start()) {
             $chain = $_SESSION['_insight_redirect_chain'] ?? [];
-            // Clear the chain after retrieving it
-            unset($_SESSION['_insight_redirect_chain']);
+            // Clear the chain only if requested
+            if ($clear) {
+                unset($_SESSION['_insight_redirect_chain']);
+            }
             return $chain;
         }
         return [];
@@ -155,7 +171,8 @@ class Profiler
     public function renderToolbar(): string
     {
         $d = $this->data;
-        $duration = number_format($d['duration_ms'] ?? 0, 1);
+        // Use total duration if there are redirects, otherwise use current duration
+        $duration = number_format($d['total_duration_ms'] ?? $d['duration_ms'] ?? 0, 1);
         $memMb = number_format(($d['memory_peak'] ?? 0) / (1024*1024), 2);
         $status = (int)($d['status'] ?? 0);
         $method = htmlspecialchars($d['method'] ?? '', ENT_QUOTES, 'UTF-8');
@@ -168,8 +185,8 @@ class Profiler
         $isRedirect = ($d['is_redirect'] ?? false) ? 'true' : 'false';
         $redirectUrl = htmlspecialchars($d['redirect_url'] ?? '', ENT_QUOTES, 'UTF-8');
         
-        // Get redirect chain from previous requests
-        $redirectChain = $this->getRedirectChain();
+        // Get redirect chain from stored data (already saved in stop())
+        $redirectChain = $d['redirect_chain'] ?? [];
         $redirectChainJson = json_encode($redirectChain);
 
         $css = $this->inlineCss();

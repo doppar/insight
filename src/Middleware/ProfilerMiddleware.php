@@ -46,6 +46,12 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
                 $injected = $body . $toolbar;
             }
             $response->setBody($injected);
+            
+            // Clear redirect chain from session after rendering toolbar
+            // (it's already saved in profiler data)
+            if (session_status() === PHP_SESSION_ACTIVE || session_start()) {
+                unset($_SESSION['_insight_redirect_chain']);
+            }
         }
 
         return $response;
