@@ -24,10 +24,10 @@ class ProfilerController
         }
 
         // Render the details page
-        return $this->renderDetailsPage($data);
+        return $this->renderDetailsPage($data, $profiler);
     }
 
-    protected function renderDetailsPage(array $data): string
+    protected function renderDetailsPage(array $data, Profiler $profiler): string
     {
         $stubPath = __DIR__ . '/../../resources/stubs/details.html';
         $template = is_file($stubPath) ? file_get_contents($stubPath) : '';
@@ -46,7 +46,8 @@ class ProfilerController
         $method = htmlspecialchars($data['method'] ?? '', ENT_QUOTES, 'UTF-8');
         $route = htmlspecialchars($data['route'] ?? '', ENT_QUOTES, 'UTF-8');
         $status = (int)($data['status'] ?? 0);
-        $duration = number_format($data['duration_ms'] ?? 0, 2);
+        // Use total duration if there are redirects, otherwise use current duration
+        $duration = number_format($data['total_duration_ms'] ?? $data['duration_ms'] ?? 0, 2);
         $memoryPeak = number_format(($data['memory_peak'] ?? 0) / (1024*1024), 2);
         $frameworkVersion = htmlspecialchars($data['framework_version'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
         $phpVersion = htmlspecialchars($data['php_version'] ?? PHP_VERSION, ENT_QUOTES, 'UTF-8');
@@ -54,6 +55,10 @@ class ProfilerController
         // SQL data
         $sqlTotalCount = (int)($data['sql_total_count'] ?? 0);
         $sqlTotalTime = number_format($data['sql_total_time_ms'] ?? 0, 2);
+        
+        // Get redirect chain from stored data (not from session)
+        $redirectChain = $data['redirect_chain'] ?? [];
+        $redirectChainJson = json_encode($redirectChain);
         
         // Encode data as JSON for JavaScript
         $dataJson = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -72,6 +77,7 @@ class ProfilerController
             '{{SQL_TOTAL_COUNT}}' => (string)$sqlTotalCount,
             '{{SQL_TOTAL_TIME}}' => $sqlTotalTime,
             '{{DATA_JSON}}' => $dataJson,
+            '{{REDIRECT_CHAIN_JSON}}' => $redirectChainJson,
         ];
 
         return strtr($template, $replacements);
