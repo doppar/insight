@@ -21,6 +21,7 @@ class ProfilerServiceProvider extends ServiceProvider
             $profiler->addCollector(new \Doppar\Insight\Collectors\RequestCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\ResponseCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\SessionCollector());
+            $profiler->addCollector(new \Doppar\Insight\Collectors\CacheCollector());
             
             return $profiler;
         });
@@ -41,6 +42,9 @@ class ProfilerServiceProvider extends ServiceProvider
                 $router->applyMiddleware(app(\Doppar\Insight\Middleware\ProfilerMiddleware::class));
             }
 
+            // Replace cache store with profiler cache store to track operations
+            $this->replaceCache();
+
             // Install PDO statement class hook to capture SQL timings without touching the framework
             try {
                 $defaultPdo = \Phaseolies\Database\Database::getPdoInstance();
@@ -60,6 +64,29 @@ class ProfilerServiceProvider extends ServiceProvider
             } catch (\Throwable) {
                 // ignore if DB not configured or not reachable
             }
+        }
+    }
+
+    protected function replaceCache(): void
+    {
+        try {
+            // Get the current cache store
+            $currentCache = $this->app->make('cache');
+            if (!$currentCache instanceof \Phaseolies\Cache\CacheStore) {
+                return;
+            }
+
+            // Get the adapter from the current cache
+            $adapter = $currentCache->getAdapter();
+            $prefix = config('caching.prefix');
+
+            // Replace with profiler cache store
+            $profilerCache = new \Doppar\Insight\Cache\ProfilerCacheStore($adapter, $prefix);
+            
+            $this->app->singleton('cache', fn() => $profilerCache);
+            $this->app->singleton(\Psr\SimpleCache\CacheInterface::class, fn() => $profilerCache);
+        } catch (\Throwable) {
+            // Silently fail if cache is not configured
         }
     }
 }
