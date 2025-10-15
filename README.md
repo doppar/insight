@@ -34,7 +34,7 @@ composer require doppar/insight
 
 The profiler automatically stores request data as JSON files in `storage/framework/profiler`. To prevent disk space issues, old files are automatically deleted after 1 days by default.
 
-You can customize the retention period in your `config/profiler.php`:
+You can customize the retention period in your `config/insight.php`:
 
 ```php
 return [
