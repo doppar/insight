@@ -9,7 +9,7 @@ class ProfilerServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(Profiler::class, function () {
-            $cfg = config('profiler') ?? [];
+            $cfg = config('insight') ?? [];
             $retentionDays = is_array($cfg) ? ($cfg['retention_days'] ?? 1) : 1;
             $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage(null, $retentionDays));
             // Register default collectors
@@ -22,6 +22,7 @@ class ProfilerServiceProvider extends ServiceProvider
             $profiler->addCollector(new \Doppar\Insight\Collectors\ResponseCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\SessionCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\CacheCollector());
+            $profiler->addCollector(new \Doppar\Insight\Collectors\HttpRequestCollector());
             
             return $profiler;
         });
@@ -44,6 +45,9 @@ class ProfilerServiceProvider extends ServiceProvider
 
             // Replace cache store with profiler cache store to track operations
             $this->replaceCache();
+            
+            // Register Axios hook to track HTTP requests
+            $this->registerAxiosHook();
 
             // Install PDO statement class hook to capture SQL timings without touching the framework
             try {
@@ -87,6 +91,28 @@ class ProfilerServiceProvider extends ServiceProvider
             $this->app->singleton(\Psr\SimpleCache\CacheInterface::class, fn() => $profilerCache);
         } catch (\Throwable) {
             // Silently fail if cache is not configured
+        }
+    }
+    
+    protected function registerAxiosHook(): void
+    {
+        try {
+            // Check if Axios is available
+            if (!class_exists(\Doppar\Axios\Http\SymfonyHttpClient::class)) {
+                return;
+            }
+            
+            // Register the global hook
+            \Doppar\Axios\Http\SymfonyHttpClient::setAfterRequestHook(
+                function (string $method, string $url, float $duration, ?int $status, bool $successful) {
+                    $collector = \Doppar\Insight\Collectors\HttpRequestCollector::active();
+                    if ($collector) {
+                        $collector->registerRequest($method, $url, $duration, $status, $successful);
+                    }
+                }
+            );
+        } catch (\Throwable) {
+            // Silently fail if Axios is not installed or hook fails
         }
     }
 }
