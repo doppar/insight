@@ -8,8 +8,12 @@ class ProfilerServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(Profiler::class, function () {
-            $cfg = config('insight') ?? [];
+        $cfg = config('insight') ?? [];
+        if (!$cfg['enabled']) return;
+
+        $this->mergeConfig(__DIR__ . '/../config/insight.php', 'insight');
+
+        $this->app->singleton(Profiler::class, function () use ($cfg) {
             $retentionDays = is_array($cfg) ? ($cfg['retention_days'] ?? 1) : 1;
             $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage(null, $retentionDays));
             // Register default collectors
@@ -23,13 +27,20 @@ class ProfilerServiceProvider extends ServiceProvider
             $profiler->addCollector(new \Doppar\Insight\Collectors\SessionCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\CacheCollector());
             $profiler->addCollector(new \Doppar\Insight\Collectors\HttpRequestCollector());
-            
+
             return $profiler;
         });
     }
 
     public function boot(): void
     {
+        $cfg = config('insight') ?? [];
+        if (!$cfg['enabled']) return;
+
+        $this->publishes([
+            __DIR__ . '/../config/insight.php' => config_path('insight.php'),
+        ], 'config');
+
         /** @var Profiler $profiler */
         $profiler = $this->app->make(Profiler::class);
 
@@ -45,7 +56,7 @@ class ProfilerServiceProvider extends ServiceProvider
 
             // Replace cache store with profiler cache store to track operations
             $this->replaceCache();
-            
+
             // Register Axios hook to track HTTP requests
             $this->registerAxiosHook();
 
@@ -62,7 +73,8 @@ class ProfilerServiceProvider extends ServiceProvider
                         try {
                             $pdo = \Phaseolies\Database\Database::getPdoInstance($name);
                             $pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [\Doppar\Insight\DB\ProfilerPdoStatement::class, []]);
-                        } catch (\Throwable) { /* ignore per-connection errors */ }
+                        } catch (\Throwable) { /* ignore per-connection errors */
+                        }
                     }
                 }
             } catch (\Throwable) {
@@ -86,14 +98,14 @@ class ProfilerServiceProvider extends ServiceProvider
 
             // Replace with profiler cache store
             $profilerCache = new \Doppar\Insight\Cache\ProfilerCacheStore($adapter, $prefix);
-            
+
             $this->app->singleton('cache', fn() => $profilerCache);
             $this->app->singleton(\Psr\SimpleCache\CacheInterface::class, fn() => $profilerCache);
         } catch (\Throwable) {
             // Silently fail if cache is not configured
         }
     }
-    
+
     protected function registerAxiosHook(): void
     {
         try {
@@ -101,7 +113,7 @@ class ProfilerServiceProvider extends ServiceProvider
             if (!class_exists(\Doppar\Axios\Http\SymfonyHttpClient::class)) {
                 return;
             }
-            
+
             // Register the global hook
             \Doppar\Axios\Http\SymfonyHttpClient::setAfterRequestHook(
                 function (string $method, string $url, float $duration, ?int $status, bool $successful) {

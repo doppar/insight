@@ -24,34 +24,22 @@ class ResponseCollector implements CollectorInterface
     {
         // Collect response headers
         $headers = [];
-        if (method_exists($response, 'headers') && $response->headers) {
-            $headers = method_exists($response->headers, 'all') ? $response->headers->all() : [];
-        } else {
-            // Fallback to headers_list()
-            foreach (headers_list() as $header) {
-                $parts = explode(':', $header, 2);
-                if (count($parts) === 2) {
-                    $headers[trim($parts[0])] = trim($parts[1]);
-                }
-            }
-        }
-        
+        $headers = $response->headers->all();
+
         // Collect response info
         $statusCode = $response->getStatusCode();
         $contentType = $response->headers->get('Content-Type') ?? '';
-        
+
         // Detect redirects
-        $isRedirect = $statusCode >= 300 && $statusCode < 400;
+        $isRedirect = $response->isRedirection();
         $redirectUrl = $isRedirect ? ($response->headers->get('Location') ?? '') : '';
-        
+
         // Collect response body info (without the actual content for performance)
         $bodySize = 0;
-        if (method_exists($response, 'getContent')) {
-            $bodySize = strlen($response->getContent() ?? '');
-        } elseif (isset($response->body)) {
+        if (isset($response->body)) {
             $bodySize = strlen($response->body ?? '');
         }
-        
+
         $this->data = [
             'response_headers' => $headers,
             'response_status' => $statusCode,
