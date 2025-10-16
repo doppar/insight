@@ -25,9 +25,9 @@ return [
     | usage, old entries are automatically removed after the specified number
     | of days.
     |
-    | Default: 30 days
+    | Default: 1 days
     |
     */
 
-    'retention_days' => 30,
+    'retention_days' => 1,
 ];
