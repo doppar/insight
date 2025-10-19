@@ -31,6 +31,7 @@ class TimeMemoryCollector implements CollectorInterface
     public function toArray(): array
     {
         $durationMs = (microtime(true) - $this->start) * 1000.0;
+
         return [
             'duration_ms' => $durationMs,
             'memory_peak' => $this->peak,

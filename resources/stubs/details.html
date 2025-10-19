@@ -11,7 +11,7 @@
         <!-- Header -->
         <div class="header">
             <div class="header-title">
-                <span><img src="https://doppar.com/logo.png" alt="Doppar Logo" width="32" height="32"> Doppar Insight Profiler</span>
+                <span><img src="{{LOGO}}" alt="Doppar Logo" width="32" height="32"> Doppar Insight Profiler</span>
                 <span class="badge badge-success">{{STATUS}}</span>
             </div>
             <div class="header-info">
@@ -37,7 +37,7 @@
                 </div>
                 <div class="info-item">
                     <span class="info-label">Framework</span>
-                    <span class="info-value"><img src="https://doppar.com/logo.png" alt="Doppar Logo" width="16" height="16">Doppar v{{FRAMEWORK_VERSION}}</span>
+                    <span class="info-value"><img src="{{LOGO}}" alt="Doppar Logo" width="16" height="16">Doppar v{{FRAMEWORK_VERSION}}</span>
                 </div>
             </div>
         </div>
@@ -146,7 +146,7 @@
                 <div class="tab-pane" id="session">
                     <div class="section">
                         <div class="section-title">Session Details</div>
-                        <div id="session-details"></div>
+                        <div id="session-details" class="sql-item"></div>
                     </div>
                 </div>
                 

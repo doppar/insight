@@ -44,7 +44,7 @@ class LogCollector implements CollectorInterface
      *
      * @param string $level The log level (debug, info, notice, warning, error, critical, alert, emergency)
      * @param string $message The log message
-     * @param array $context Additional context data
+     * @param array<string, mixed> $context Additional context data
      * @param float $timestamp The timestamp when the log was created
      * @return void
      */

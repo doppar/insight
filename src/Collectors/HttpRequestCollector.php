@@ -8,6 +8,7 @@ use Phaseolies\Http\Response;
 
 class HttpRequestCollector implements CollectorInterface
 {
+    /** @var array<int, array<string, mixed>> */
     protected array $requests = [];
     protected static ?self $active = null;
 

@@ -2,13 +2,14 @@
 
 namespace Doppar\Insight\Collectors;
 
+use Doppar\Insight\Contracts\CollectorInterface;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 use Phaseolies\Support\Facades\Auth;
-use Doppar\Insight\Contracts\CollectorInterface;
 
 class SessionCollector implements CollectorInterface
 {
+    /** @var array<string, mixed> */
     protected array $data = [];
 
     public function name(): string
@@ -19,7 +20,7 @@ class SessionCollector implements CollectorInterface
     public function start(Request $request): void
     {
         $this->data = [
-            'session_data' => []
+            'session_data' => [],
         ];
 
         // Collect session data if available
@@ -39,7 +40,7 @@ class SessionCollector implements CollectorInterface
     public function toArray(): array
     {
         return [
-            'session_data' => $this->data['session_data']
+            'session_data' => $this->data['session_data'],
         ];
     }
 }

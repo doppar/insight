@@ -2,11 +2,14 @@
 
 namespace Doppar\Insight\Controllers;
 
-use Phaseolies\Http\Request;
 use Doppar\Insight\Profiler;
+use Phaseolies\Http\Request;
 
 class ProfilerController
 {
+    /**
+     * @return array<string, string>|string
+     */
     public function show(Request $request, string $id)
     {
         /** @var Profiler $profiler */
@@ -19,7 +22,7 @@ class ProfilerController
 
         $data = $profiler->getData($id);
 
-        if (!$data) {
+        if (! $data) {
             return ['error' => 'Not found'];
         }
 
@@ -27,6 +30,9 @@ class ProfilerController
         return $this->renderDetailsPage($data, $profiler);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     */
     protected function renderDetailsPage(array $data, Profiler $profiler): string
     {
         $stubPath = __DIR__ . '/../../resources/stubs/details.html';
@@ -40,6 +46,7 @@ class ProfilerController
         $builder = new \Doppar\Insight\AssetBuilder();
         $css = $builder->buildCss();
         $js = $builder->buildJs();
+        $logo = $builder->getLogo();
 
         // Prepare data for template
         $id = htmlspecialchars($data['id'] ?? '', ENT_QUOTES, 'UTF-8');
@@ -48,24 +55,25 @@ class ProfilerController
         $status = (int)($data['status'] ?? 0);
         // Use total duration if there are redirects, otherwise use current duration
         $duration = number_format($data['total_duration_ms'] ?? $data['duration_ms'] ?? 0, 2);
-        $memoryPeak = number_format(($data['memory_peak'] ?? 0) / (1024*1024), 2);
+        $memoryPeak = number_format(($data['memory_peak'] ?? 0) / (1024 * 1024), 2);
         $frameworkVersion = htmlspecialchars($data['framework_version'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
         $phpVersion = htmlspecialchars($data['php_version'] ?? PHP_VERSION, ENT_QUOTES, 'UTF-8');
-        
+
         // SQL data
         $sqlTotalCount = (int)($data['sql_total_count'] ?? 0);
         $sqlTotalTime = number_format($data['sql_total_time_ms'] ?? 0, 2);
-        
+
         // Get redirect chain from stored data (not from session)
         $redirectChain = $data['redirect_chain'] ?? [];
         $redirectChainJson = json_encode($redirectChain);
-        
+
         // Encode data as JSON for JavaScript
         $dataJson = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
         $replacements = [
             '{{CSS}}' => $css,
             '{{JS}}' => $js,
+            '{{LOGO}}' => $logo,
             '{{ID}}' => $id,
             '{{METHOD}}' => $method,
             '{{ROUTE}}' => $route,
@@ -80,6 +88,6 @@ class ProfilerController
             '{{REDIRECT_CHAIN_JSON}}' => $redirectChainJson,
         ];
 
-        return strtr($template, $replacements);
+        return strtr($template ?: '', $replacements);
     }
 }

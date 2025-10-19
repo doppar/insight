@@ -12,5 +12,46 @@ permissions:
   contents: read
 
 jobs:
-  tests:
-    uses: doppar/.github/.github/workflows/static-analysis.yml@main
+  phpstan:
+    runs-on: ubuntu-22.04
+    name: PHPStan Level 8
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse --level=8 --memory-limit=2G
+
+  php-cs-fixer:
+    runs-on: ubuntu-22.04
+    name: PHP CS Fixer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+          extensions: dom, curl, libxml, mbstring, zip
+          tools: composer:v2, cs2pr
+          coverage: none
+
+      - name: Install dependencies
+        run: composer update --prefer-dist --no-interaction --no-progress
+
+      - name: Run PHP CS Fixer
+        run: vendor/bin/php-cs-fixer fix --dry-run --diff --format=checkstyle | cs2pr

@@ -42,6 +42,9 @@ class SqlCollector implements CollectorInterface
         self::setActive(null);
     }
 
+    /**
+     * @param array<int|string, mixed> $bindings
+     */
     public function registerQuery(string $sql, array $bindings, float $durationMs, ?int $rowCount = null, ?string $error = null): void
     {
         $this->queries[] = [

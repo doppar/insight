@@ -8,6 +8,7 @@ use Phaseolies\Http\Response;
 
 class ResponseCollector implements CollectorInterface
 {
+    /** @var array<string, mixed> */
     protected array $data = [];
 
     public function name(): string

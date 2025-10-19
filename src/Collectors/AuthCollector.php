@@ -2,13 +2,14 @@
 
 namespace Doppar\Insight\Collectors;
 
+use Doppar\Insight\Contracts\CollectorInterface;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 use Phaseolies\Support\Facades\Auth;
-use Doppar\Insight\Contracts\CollectorInterface;
 
 class AuthCollector implements CollectorInterface
 {
+    /** @var array<string, mixed> */
     protected array $data = [];
 
     public function name(): string
@@ -31,13 +32,13 @@ class AuthCollector implements CollectorInterface
         try {
             if (Auth::check()) {
                 $user = Auth::user();
-                
+
                 if ($user) {
                     $this->data['authenticated'] = true;
                     $this->data['user_id'] = $user->id ?? null;
                     $this->data['user_name'] = $user->name ?? null;
                     $this->data['user_email'] = $user->email ?? null;
-                    
+
                     // Store safe user data (excluding sensitive fields)
                     $userData = is_object($user) && method_exists($user, 'toArray') ? $user->toArray() : (array)$user;
                     unset($userData['password'], $userData['remember_token'], $userData['two_factor_secret'], $userData['two_factor_recovery_codes']);

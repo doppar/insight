@@ -1,0 +1,16 @@
+parameters:
+    level: 8
+    paths:
+        - src
+    excludePaths:
+        - src/AssetBuilder.php
+    # Exclude vendor from analysis to reduce memory usage
+    scanDirectories:
+        - vendor/doppar/framework/src
+    ignoreErrors:
+        # Ignore facade static method calls - facades use __callStatic magic
+        - '#Call to an undefined static method Phaseolies\\Support\\Facades\\[a-zA-Z]+::[a-zA-Z]+\(\)#'
+        # Ignore service container make() with string literals - type cannot be inferred
+        - '#Parameter \#1 \$abstract of method Phaseolies\\Application::make\(\) expects class-string#'
+        # Ignore cache getAdapter() on cache|class-string
+        - '#Cannot call method getAdapter\(\) on cache\|class-string#'

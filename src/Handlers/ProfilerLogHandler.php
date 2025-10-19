@@ -2,9 +2,9 @@
 
 namespace Doppar\Insight\Handlers;
 
+use Doppar\Insight\Collectors\LogCollector;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\LogRecord;
-use Doppar\Insight\Collectors\LogCollector;
 
 /**
  * Custom Monolog handler that intercepts logs and sends them to the LogCollector
@@ -20,8 +20,8 @@ class ProfilerLogHandler extends AbstractProcessingHandler
     protected function write(LogRecord $record): void
     {
         $collector = LogCollector::active();
-        
-        if (!$collector) {
+
+        if (! $collector) {
             return;
         }
 

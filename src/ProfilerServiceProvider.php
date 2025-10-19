@@ -8,162 +8,181 @@ class ProfilerServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $cfg = config('insight') ?? [];
-        if (!$cfg['enabled']) return;
+        if (! $this->isEnabled()) {
+            return;
+        }
 
         $this->mergeConfig(__DIR__ . '/../config/insight.php', 'insight');
+        $this->registerProfiler();
+    }
 
-        $this->app->singleton(Profiler::class, function () use ($cfg) {
-            $retentionDays = is_array($cfg) ? ($cfg['retention_days'] ?? 1) : 1;
-            $profiler = new Profiler(is_array($cfg) ? $cfg : [], new \Doppar\Insight\Storage\FileStorage(null, $retentionDays));
-            // Register default collectors
-            $profiler->addCollector(new \Doppar\Insight\Collectors\DopparCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\TimeMemoryCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\HttpCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\SqlCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\AuthCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\RequestCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\ResponseCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\SessionCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\CacheCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\HttpRequestCollector());
-            $profiler->addCollector(new \Doppar\Insight\Collectors\LogCollector());
+    public function boot(): void
+    {
+        if (! $this->isEnabled()) {
+            return;
+        }
+
+        $this->publishConfiguration();
+
+        /** @var Profiler $profiler */
+        $profiler = $this->app->make(Profiler::class);
+
+        if ($profiler->isGloballyEnabled()) {
+            $this->registerRoutes();
+            $this->registerMiddleware();
+            $this->registerHooks($profiler);
+        }
+    }
+
+    /**
+     * Check if Insight is enabled
+     */
+    protected function isEnabled(): bool
+    {
+        $config = config('insight');
+
+        return is_array($config) && ! empty($config['enabled']);
+    }
+
+    /**
+     * Register the Profiler singleton
+     */
+    protected function registerProfiler(): void
+    {
+        $this->app->singleton(Profiler::class, function () {
+            $config = config('insight');
+
+            // Ensure config is an array
+            if (! is_array($config)) {
+                $config = [];
+            }
+
+            $retentionDays = $config['retention_days'] ?? 1;
+
+            $profiler = new Profiler(
+                $config,
+                new \Doppar\Insight\Storage\FileStorage(null, $retentionDays)
+            );
+
+            $this->registerCollectors($profiler);
 
             return $profiler;
         });
     }
 
-    public function boot(): void
+    /**
+     * Publish configuration file
+     */
+    protected function publishConfiguration(): void
     {
-        $cfg = config('insight') ?? [];
-        if (!$cfg['enabled']) return;
-
         $this->publishes([
             __DIR__ . '/../config/insight.php' => config_path('insight.php'),
         ], 'config');
-
-        /** @var Profiler $profiler */
-        $profiler = $this->app->make(Profiler::class);
-
-        // Register routes only if enabled (protects prod)
-        if ($profiler->isGloballyEnabled()) {
-            // Load package routes
-            require __DIR__ . '/../routes/profiler.php';
-
-            $router = app('route');
-            if (method_exists($router, 'applyMiddleware')) {
-                $router->applyMiddleware(app(\Doppar\Insight\Middleware\ProfilerMiddleware::class));
-            }
-
-            // Replace cache store with profiler cache store to track operations
-            $this->replaceCache();
-
-            // Register Axios hook to track HTTP requests
-            $this->registerAxiosHook();
-
-            // Hook into the logger to capture logs
-            $this->hookLogger();
-
-            // Install PDO statement class hook to capture SQL timings without touching the framework
-            try {
-                $defaultPdo = \Phaseolies\Database\Database::getPdoInstance();
-                if ($defaultPdo) {
-                    $defaultPdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [\Doppar\Insight\DB\ProfilerPdoStatement::class, []]);
-                }
-
-                $connections = config('database.connections') ?? [];
-                if (is_array($connections)) {
-                    foreach (array_keys($connections) as $name) {
-                        try {
-                            $pdo = \Phaseolies\Database\Database::getPdoInstance($name);
-                            $pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [\Doppar\Insight\DB\ProfilerPdoStatement::class, []]);
-                        } catch (\Throwable) { /* ignore per-connection errors */
-                        }
-                    }
-                }
-            } catch (\Throwable) {
-                // ignore if DB not configured or not reachable
-            }
-        }
     }
 
-    protected function replaceCache(): void
+    /**
+     * Register profiler routes
+     */
+    protected function registerRoutes(): void
     {
-        try {
-            // Get the current cache store
-            $currentCache = $this->app->make('cache');
-            if (!$currentCache instanceof \Phaseolies\Cache\CacheStore) {
-                return;
-            }
-
-            // Get the adapter from the current cache
-            $adapter = $currentCache->getAdapter();
-            $prefix = config('caching.prefix');
-
-            // Replace with profiler cache store
-            $profilerCache = new \Doppar\Insight\Cache\ProfilerCacheStore($adapter, $prefix);
-
-            $this->app->singleton('cache', fn() => $profilerCache);
-            $this->app->singleton(\Psr\SimpleCache\CacheInterface::class, fn() => $profilerCache);
-        } catch (\Throwable) {
-            // Silently fail if cache is not configured
-        }
+        require __DIR__ . '/../routes/profiler.php';
     }
 
-    protected function registerAxiosHook(): void
+    /**
+     * Register profiler middleware
+     */
+    protected function registerMiddleware(): void
     {
-        try {
-            // Check if Axios is available
-            if (!class_exists(\Doppar\Axios\Http\SymfonyHttpClient::class)) {
-                return;
-            }
+        $router = app('route');
 
-            // Register the global hook
-            \Doppar\Axios\Http\SymfonyHttpClient::setAfterRequestHook(
-                function (string $method, string $url, float $duration, ?int $status, bool $successful) {
-                    $collector = \Doppar\Insight\Collectors\HttpRequestCollector::active();
-                    if ($collector) {
-                        $collector->registerRequest($method, $url, $duration, $status, $successful);
-                    }
-                }
+        if (is_object($router) && method_exists($router, 'applyMiddleware')) {
+            $router->applyMiddleware(
+                app(\Doppar\Insight\Middleware\ProfilerMiddleware::class)
             );
-        } catch (\Throwable) {
-            // Silently fail if Axios is not installed or hook fails
         }
     }
 
-    protected function hookLogger(): void
+    /**
+     * Register profiler hooks
+     *
+     * Hooks are registered automatically and are not user-configurable.
+     * They integrate the profiler with various parts of the application
+     * (cache, database, logger, HTTP clients, etc.)
+     *
+     * @param Profiler $profiler
+     * @return void
+     */
+    protected function registerHooks(Profiler $profiler): void
     {
-        try {
-            // Create a persistent profiler handler
-            $profilerHandler = new \Doppar\Insight\Handlers\ProfilerLogHandler();
-            
-            // Create a persistent handler wrapper
-            $persistentHandler = new class($profilerHandler) implements \Phaseolies\Logger\Contracts\LogHandlerInterface {
-                private \Doppar\Insight\Handlers\ProfilerLogHandler $handler;
-                
-                public function __construct(\Doppar\Insight\Handlers\ProfilerLogHandler $handler)
-                {
-                    $this->handler = $handler;
-                }
-                
-                public function configureHandler(\Monolog\Logger $logger, string $channel): void
-                {
-                    $logger->pushHandler($this->handler);
-                }
-            };
-            
-            // Wrap the logger service to persist our handler across reset() calls
-            $this->app->extend('log', function ($logger) use ($persistentHandler) {
-                if (!$logger instanceof \Phaseolies\Support\LoggerService) {
-                    return $logger;
-                }
-                
-                // Return our wrapper that re-adds the handler before each log call
-                return new \Doppar\Insight\Support\ProfilerLoggerWrapper($logger, $persistentHandler);
-            });
-        } catch (\Throwable $e) {
-            // Silently fail if logger is not configured
+        $hooks = $this->getHooks();
+
+        foreach ($hooks as $hookClass) {
+            try {
+                $hook = new $hookClass();
+                $hook->register($this->app, $profiler);
+            } catch (\Throwable $e) {
+                // Silently skip hooks that fail to instantiate or register
+            }
         }
+    }
+
+    /**
+     * Get the list of hooks to register
+     *
+     * @return array<int, class-string<\Doppar\Insight\Contracts\ProfilerHookInterface>>
+     */
+    protected function getHooks(): array
+    {
+        return [
+            \Doppar\Insight\Hooks\CacheHook::class,
+            \Doppar\Insight\Hooks\AxiosHook::class,
+            \Doppar\Insight\Hooks\LoggerHook::class,
+            \Doppar\Insight\Hooks\DatabaseHook::class,
+        ];
+    }
+
+    /**
+     * Register profiler collectors
+     *
+     * Collectors are registered automatically and are not user-configurable.
+     * They gather various types of data during request execution
+     * (SQL queries, cache operations, logs, HTTP requests, etc.)
+     *
+     * @param Profiler $profiler
+     * @return void
+     */
+    protected function registerCollectors(Profiler $profiler): void
+    {
+        $collectors = $this->getCollectors();
+
+        foreach ($collectors as $collectorClass) {
+            try {
+                $profiler->addCollector(new $collectorClass());
+            } catch (\Throwable $e) {
+                // Silently skip collectors that fail to instantiate
+            }
+        }
+    }
+
+    /**
+     * Get the list of collectors to register
+     *
+     * @return array<int, class-string<\Doppar\Insight\Contracts\CollectorInterface>>
+     */
+    protected function getCollectors(): array
+    {
+        return [
+            \Doppar\Insight\Collectors\DopparCollector::class,
+            \Doppar\Insight\Collectors\TimeMemoryCollector::class,
+            \Doppar\Insight\Collectors\HttpCollector::class,
+            \Doppar\Insight\Collectors\SqlCollector::class,
+            \Doppar\Insight\Collectors\AuthCollector::class,
+            \Doppar\Insight\Collectors\RequestCollector::class,
+            \Doppar\Insight\Collectors\ResponseCollector::class,
+            \Doppar\Insight\Collectors\SessionCollector::class,
+            \Doppar\Insight\Collectors\CacheCollector::class,
+            \Doppar\Insight\Collectors\HttpRequestCollector::class,
+            \Doppar\Insight\Collectors\LogCollector::class,
+        ];
     }
 }

@@ -12,12 +12,8 @@ class SessionComponent extends InsightComponent {
         if (!data.session_data || Object.keys(data.session_data).length === 0) {
             return this.buildEmptyState();
         }
-        
-        return createJsonViewer(data.session_data, {
-            title: 'Session Data',
-            collapsible: true,
-            copyButton: true
-        });
+
+        return jsonViewer(data.session_data, true);
     }
     
     buildEmptyState() {

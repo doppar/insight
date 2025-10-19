@@ -3,9 +3,9 @@
 namespace Doppar\Insight\Middleware;
 
 use Closure;
+use Doppar\Insight\Profiler;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
-use Doppar\Insight\Profiler;
 
 class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
 {
@@ -46,7 +46,7 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
                 $injected = $body . $toolbar;
             }
             $response->setBody($injected);
-            
+
             // Clear redirect chain from session after rendering toolbar
             // (it's already saved in profiler data)
             if (session_status() === PHP_SESSION_ACTIVE || session_start()) {

@@ -2,13 +2,14 @@
 
 namespace Doppar\Insight\Collectors;
 
+use Doppar\Insight\Contracts\CollectorInterface;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 use Phaseolies\Support\Facades\Cache;
-use Doppar\Insight\Contracts\CollectorInterface;
 
 class CacheCollector implements CollectorInterface
 {
+    /** @var array<int, array<string, mixed>> */
     protected array $operations = [];
     protected static ?self $active = null;
 
@@ -61,6 +62,7 @@ class CacheCollector implements CollectorInterface
         if (is_array($value) || is_object($value)) {
             return '[' . gettype($value) . ']';
         }
+
         return $value;
     }
 

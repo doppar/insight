@@ -2,22 +2,25 @@
 
 namespace Doppar\Insight;
 
-use Phaseolies\Http\Request;
-use Phaseolies\Http\Response;
 use Doppar\Insight\Contracts\CollectorInterface;
 use Doppar\Insight\Contracts\StorageInterface;
+use Phaseolies\Http\Request;
+use Phaseolies\Http\Response;
 
 class Profiler
 {
+    /** @var array<string, mixed> */
     protected array $config;
 
     protected float $startTime = 0.0;
     protected int $startMemory = 0;
 
     protected string $requestId = '';
+    /** @var array<string, mixed> */
     protected array $data = [];
 
     // Simple in-memory storage per request
+    /** @var array<string, array<string, mixed>> */
     protected static array $storage = [];
 
     /**
@@ -27,16 +30,14 @@ class Profiler
 
     protected StorageInterface $storageDriver;
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(array $config = [], ?StorageInterface $storage = null)
     {
         $this->config = array_merge([
             'enabled' => null, // null => auto by env
             'allow_ips' => ['127.0.0.1', '::1'],
-            'collect' => [
-                'db' => false,
-                'logs' => false,
-                'cache' => false,
-            ],
         ], $config);
 
         // Default storage driver can be provided via Service Provider
@@ -46,6 +47,7 @@ class Profiler
     public function isGloballyEnabled(): bool
     {
         $envEnabled = app()->isDevelopment();
+
         return ($this->config['enabled'] ?? null) === null
             ? $envEnabled
             : (bool) $this->config['enabled'];
@@ -58,10 +60,11 @@ class Profiler
 
     public function isEnabledFor(Request $request): bool
     {
-        if (!$this->isGloballyEnabled()) {
+        if (! $this->isGloballyEnabled()) {
             return false;
         }
         $ip = $request->ip();
+
         return in_array($ip, $this->config['allow_ips'] ?? [], true);
     }
 
@@ -98,12 +101,12 @@ class Profiler
             'status' => $response->getStatusCode(),
             'content_type' => $response->headers->get('Content-Type') ?? '',
         ];
-        
+
         // Get and store redirect chain with the profiler data (don't clear session yet)
         $redirectChain = $this->getRedirectChain(false);
-        if (!empty($redirectChain)) {
+        if (! empty($redirectChain)) {
             $this->data['redirect_chain'] = $redirectChain;
-            
+
             // Calculate total duration including all redirects
             $totalDuration = $this->data['duration_ms'] ?? 0;
             foreach ($redirectChain as $redirect) {
@@ -120,6 +123,9 @@ class Profiler
         $this->storageDriver->put($this->requestId, $this->data);
     }
 
+    /**
+     * @return array<string, mixed>|null
+     */
     public function getData(string $id): ?array
     {
         // First, check in-memory (same request)
@@ -131,11 +137,17 @@ class Profiler
         return $this->storageDriver->get($id);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     public function getCurrentData(): array
     {
         return $this->data;
     }
 
+    /**
+     * @return array<int, mixed>
+     */
     public function getRedirectChain(bool $clear = false): array
     {
         if (session_status() === PHP_SESSION_ACTIVE || session_start()) {
@@ -144,103 +156,49 @@ class Profiler
             if ($clear) {
                 unset($_SESSION['_insight_redirect_chain']);
             }
+
             return $chain;
         }
+
         return [];
     }
 
     public function shouldInject(Response $response): bool
     {
-        if ($response->isEmpty()) return false;
+        if ($response->isEmpty()) {
+            return false;
+        }
         $code = $response->getStatusCode();
-        if ($code >= 300 && $code < 400) return false;
+        if ($code >= 300 && $code < 400) {
+            return false;
+        }
 
         $ct = strtolower($response->headers->get('Content-Type') ?? '');
-        if ($ct && !str_contains($ct, 'text/html')) return false;
+        if ($ct && ! str_contains($ct, 'text/html')) {
+            return false;
+        }
 
         $disp = strtolower($response->headers->get('Content-Disposition') ?? '');
-        if ($disp && str_contains($disp, 'attachment')) return false;
+        if ($disp && str_contains($disp, 'attachment')) {
+            return false;
+        }
 
         // Avoid calling getBody() (strict string); use public property which may be empty
         $body = $response->body ?? '';
-        if ($body === '') return false;
+        if ($body === '') {
+            return false;
+        }
 
         return true;
     }
 
+    /**
+     * Render the profiler toolbar HTML
+     */
     public function renderToolbar(): string
     {
-        $d = $this->data;
-        // Use total duration if there are redirects, otherwise use current duration
-        $duration = number_format($d['total_duration_ms'] ?? $d['duration_ms'] ?? 0, 1);
-        $memMb = number_format(($d['memory_peak'] ?? 0) / (1024*1024), 2);
-        $status = (int)($d['status'] ?? 0);
-        $method = htmlspecialchars($d['method'] ?? '', ENT_QUOTES, 'UTF-8');
-        $path = htmlspecialchars($d['route'] ?? '', ENT_QUOTES, 'UTF-8');
-        $id = htmlspecialchars($d['id'] ?? '', ENT_QUOTES, 'UTF-8');
-        $sqlCount = (int)($d['sql_total_count'] ?? 0);
-        $sqlTime = number_format($d['sql_total_time_ms'] ?? 0, 1);
-        $logsCount = (int)($d['logs_total_count'] ?? 0);
-        
-        // Check for redirect
-        $isRedirect = ($d['is_redirect'] ?? false) ? 'true' : 'false';
-        $redirectUrl = htmlspecialchars($d['redirect_url'] ?? '', ENT_QUOTES, 'UTF-8');
-        
-        // Get redirect chain from stored data (already saved in stop())
-        $redirectChain = $d['redirect_chain'] ?? [];
-        $redirectChainJson = json_encode($redirectChain);
+        $renderer = new \Doppar\Insight\Rendering\ToolbarRenderer();
 
-        $css = $this->inlineCss();
-        $js = $this->inlineJs();
-
-        $stubPath = __DIR__ . '/../resources/stubs/toolbar.html';
-        $template = is_file($stubPath) ? file_get_contents($stubPath) : '';
-
-        if ($template === '') {
-            return '';
-        }
-
-        $frameworkVersion = htmlspecialchars($d['framework_version'] ?? 'unknown', ENT_QUOTES, 'UTF-8');
-        $phpVersion = htmlspecialchars($d['php_version'] ?? PHP_VERSION, ENT_QUOTES, 'UTF-8');
-        
-        // Auth data
-        $authAuthenticated = ($d['auth_authenticated'] ?? false) ? 'true' : 'false';
-        $authUserName = htmlspecialchars($d['auth_user_name'] ?? 'Guest', ENT_QUOTES, 'UTF-8');
-        $authUserEmail = htmlspecialchars($d['auth_user_email'] ?? '', ENT_QUOTES, 'UTF-8');
-        
-        $replacements = [
-            '{{CSS}}' => $css,
-            '{{JS}}' => $js,
-            '{{ID}}' => $id,
-            '{{STATUS}}' => (string)$status,
-            '{{METHOD}}' => $method,
-            '{{PATH}}' => $path,
-            '{{DURATION}}' => $duration,
-            '{{SQL_COUNT}}' => (string)$sqlCount,
-            '{{SQL_TIME}}' => $sqlTime,
-            '{{LOGS_COUNT}}' => (string)$logsCount,
-            '{{FRAMEWORK_VERSION}}' => $frameworkVersion,
-            '{{PHP_VERSION}}' => $phpVersion,
-            '{{IS_REDIRECT}}' => $isRedirect,
-            '{{REDIRECT_URL}}' => $redirectUrl,
-            '{{REDIRECT_CHAIN}}' => htmlspecialchars($redirectChainJson, ENT_QUOTES, 'UTF-8'),
-            '{{AUTH_AUTHENTICATED}}' => $authAuthenticated,
-            '{{AUTH_USER_NAME}}' => $authUserName,
-            '{{AUTH_USER_EMAIL}}' => $authUserEmail,
-        ];
-
-        return strtr($template, $replacements);
-    }
-
-    protected function inlineCss(): string
-    {
-        $path = __DIR__ . '/../resources/assets/toolbar.css';
-        return is_file($path) ? (string) file_get_contents($path) : '';
-    }
-
-    protected function inlineJs(): string
-    {
-        $path = __DIR__ . '/../resources/assets/toolbar.js';
-        return is_file($path) ? (string) file_get_contents($path) : '';
+        return $renderer->render($this->data);
     }
 }

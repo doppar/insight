@@ -8,6 +8,7 @@ use Phaseolies\Http\Response;
 
 class HttpCollector implements CollectorInterface
 {
+    /** @var array<string, mixed> */
     protected array $data = [];
 
     public function name(): string
@@ -29,7 +30,7 @@ class HttpCollector implements CollectorInterface
     {
         $this->data['status'] = $response->getStatusCode();
         $this->data['content_type'] = $response->headers->get('Content-Type') ?? '';
-        
+
         // Detect redirects (3xx status codes)
         $status = $response->getStatusCode();
         if ($status >= 300 && $status < 400) {
