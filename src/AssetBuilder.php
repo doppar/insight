@@ -144,11 +144,17 @@ class AssetBuilder
     public function getLogo(): string
     {
         $logoPath = $this->assetsPath . '/logo.png';
-        if (!is_file($logoPath)) {
+        if (! is_file($logoPath)) {
             return '';
         }
 
-        $imageData = base64_encode(file_get_contents($logoPath));
+        $content = file_get_contents($logoPath);
+        if ($content === false) {
+            return '';
+        }
+
+        $imageData = base64_encode($content);
+
         return 'data:image/png;base64,' . $imageData;
     }
 }
