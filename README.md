@@ -14,36 +14,96 @@
 
 > **Note:** This repository contains the core code of the Doppar framework Insight package. If you want to build an application using Doppar, visit the main [Doppar repository](https://github.com/doppar/doppar).
 
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%">
+      <h3 align="center">Queries</h3>
+      <img src="ressources/1.png" alt="SQL Queries Profiling" width="100%">
+    </td>
+    <td width="50%">
+      <h3 align="center">Session</h3>
+      <img src="ressources/2.png" alt="Session Information" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <h3 align="center">Main Toolbar</h3>
+      <img src="ressources/3.png" alt="Doppar Insight Toolbar" width="100%">
+    </td>
+  </tr>
+</table>
 
 ## Installation
+
+Install the package via Composer:
 
 ```bash
 composer require doppar/insight
 ```
 
+The service provider will be automatically registered via package discovery.
+
 ## Configuration
 
+### Basic Setup
+
+The profiler is automatically enabled in development mode. No additional configuration is required!
+
+However, you can customize the behavior by publishing the configuration file:
+
+```bash
+php pool vendor:publish --provider="Doppar\Insight\ProfilerServiceProvider"
+```
+
+### Registration
+
+If you disabled package discovery, add the service provider manually in `config/app.php`:
+
 ```php
-"providers" => [
+'providers' => [
     // ...
     Doppar\Insight\ProfilerServiceProvider::class,
 ],
 ```
 
-### Cache Retention
+### Storage & Retention
 
-The profiler automatically stores request data as JSON files in `storage/framework/profiler`. To prevent disk space issues, old files are automatically deleted after 1 days by default.
+The profiler automatically stores request data as JSON files in `storage/framework/profiler`. To prevent disk space issues, old files are automatically deleted after the retention period (1 day by default).
 
 You can customize the retention period in your `config/insight.php`:
 
 ```php
 return [
-    // ...
-    'retention_days' => 30,
+    'retention_days' => 7, // Keep data for 7 days
 ];
 ```
 
-The cleanup runs automatically once per hour when new profiler data is stored.
+The cleanup runs automatically once per day when new profiler data is stored.
+
+## Usage
+
+Once installed, the profiler toolbar will automatically appear at the bottom of your HTML pages in development mode.
+
+## Collectors
+
+Doppar Insight uses collectors to gather data. Available collectors:
+
+- **TimeMemoryCollector** - Tracks execution time and memory usage
+- **RequestCollector** - Collects request information
+- **ResponseCollector** - Collects response information
+- **SqlCollector** - Profiles database queries
+- **CacheCollector** - Tracks cache operations
+- **LogCollector** - Captures application logs
+- **SessionCollector** - Inspects session data
+- **AuthCollector** - Shows authentication information
+- **HttpCollector** - HTTP protocol details
+- **DopparCollector** - Framework version and environment
+
+### Production
+
+Do not use this package in production.
 
 ## Contributing
 

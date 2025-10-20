@@ -1,6 +1,8 @@
 {
   "name": "doppar/insight",
   "description": "Doppar/Insight is a developer profiling and debugging toolbar for Doppar framework",
+  "keywords": ["doppar", "profiler", "debugbar", "debug", "toolbar"],
+  "homepage": "https://doppar.com/versions/3.x/doppar-insight.html",
   "type": "library",
   "license": "MIT",
   "support": {
@@ -30,14 +32,21 @@
   },
   "minimum-stability": "dev",
   "prefer-stable": true,
+  "autoload-dev": {
+    "psr-4": {
+      "Doppar\\Insight\\Tests\\": "tests/"
+    }
+  },
   "require-dev": {
     "friendsofphp/php-cs-fixer": "^3.89",
-    "phpstan/phpstan": "^2.1"
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^12.4"
   },
   "scripts": {
     "phpstan": "phpstan analyse --level=8 --memory-limit=2G",
     "cs-fix": "php-cs-fixer fix",
     "cs-check": "php-cs-fixer fix --dry-run --diff",
+    "test": "phpunit",
     "analyse": [
       "@phpstan",
       "@cs-check"
