@@ -6,10 +6,10 @@ use Doppar\Insight\Support\ErrorHistoryRecorder;
 use Doppar\Insight\Support\InsightBeforeExceptionHandler;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
-use Phaseolies\Providers\ServiceProvider;
+use Phaseolies\Launchers\ServiceLauncher;
 use Throwable;
 
-class ProfilerServiceProvider extends ServiceProvider
+class ProfilerLauncher extends ServiceLauncher
 {
     protected static bool $middlewareRegistered = false;
 
@@ -24,7 +24,7 @@ class ProfilerServiceProvider extends ServiceProvider
         $this->registerProfiler();
     }
 
-    public function boot(): void
+    public function launch(): void
     {
         $this->publishConfiguration();
 
