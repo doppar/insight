@@ -109,19 +109,38 @@ window.DopparProfiler = {
   },
   syncPanelPosition(){
     const host = document.getElementById('doppar-profiler-panel');
+    if(!host){
+      return;
+    }
+    host.style.display = 'flex';
     const bounds = this.getToolbarBounds();
-    if(!host || !bounds){
+    if(!bounds){
       return;
     }
 
-    const gap = 14;
+    const gap = 16;
     const availableHeight = Math.max(220, bounds.top - gap - 12);
+    const panelHeight = Math.min(500, availableHeight);
+    // Panel is wider than the dock; keep them decoupled.
+    const panelWidth = Math.min(1200, window.innerWidth - 24);
+    const left = Math.max(12, Math.min(
+      bounds.left + ((bounds.width - panelWidth) / 2),
+      window.innerWidth - panelWidth - 12
+    ));
+    const panelTop = Math.max(12, bounds.top - gap - panelHeight);
 
-    host.style.left = bounds.left + 'px';
+    host.style.left = left + 'px';
     host.style.right = 'auto';
-    host.style.width = bounds.width + 'px';
-    host.style.bottom = (window.innerHeight - bounds.top + gap) + 'px';
-    host.style.setProperty('--dp-panel-available-height', availableHeight + 'px');
+    host.style.width = panelWidth + 'px';
+    host.style.height = panelHeight + 'px';
+    host.style.top = panelTop + 'px';
+    host.style.bottom = 'auto';
+    host.style.transform = '';
+    host.style.boxSizing = 'border-box';
+    host.style.overflow = 'hidden';
+    host.style.background = 'transparent';
+    host.style.borderRadius = '12px';
+    host.style.setProperty('--dp-panel-height', panelHeight + 'px');
   },
   ensurePanelRoot(){
     let host = document.getElementById('doppar-profiler-panel');
@@ -132,6 +151,9 @@ window.DopparProfiler = {
       host.style.all = 'initial';
       host.style.position = 'fixed';
       host.style.zIndex = '2147483647';
+      host.style.background = 'transparent';
+      host.style.borderRadius = '12px';
+      host.style.overflow = 'hidden';
       document.body.appendChild(host);
     }
     this.syncPanelPosition();
@@ -221,7 +243,7 @@ window.DopparProfiler = {
             </tr>
           `).join('');
           return `
-            <table class="property-table">
+            <table class="request-table">
               <thead>
                 <tr>
                   <th>Field</th>
@@ -232,6 +254,28 @@ window.DopparProfiler = {
               </thead>
               <tbody>${rows}</tbody>
             </table>
+          `;
+        };
+        const buildResponseBlock = (title, content) => {
+          if(!content){
+            return '';
+          }
+          return `
+            <div class="response-block">
+              <div class="subsection-title">${escapeHtml(title)}</div>
+              ${content}
+            </div>
+          `;
+        };
+        const buildRequestBlock = (title, content) => {
+          if(!content){
+            return '';
+          }
+          return `
+            <div class="request-block">
+              <div class="subsection-title">${escapeHtml(title)}</div>
+              ${content}
+            </div>
           `;
         };
         const buildSubsection = (title, content) => {
@@ -303,41 +347,43 @@ window.DopparProfiler = {
           .panel {
             --dp-scrollbar-size: 2px;
             --dp-scrollbar-track: transparent;
-            --dp-scrollbar-thumb: rgba(132,134,255,0.22);
-            --dp-scrollbar-thumb-hover: rgba(132,134,255,0.34);
+            --dp-scrollbar-thumb: rgba(255,255,255,0.18);
+            --dp-scrollbar-thumb-hover: rgba(255,255,255,0.28);
+            box-sizing: border-box;
             width: 100%;
-            max-height: min(78vh, var(--dp-panel-available-height, 78vh));
-            overflow: auto;
-            border-radius: 26px;
+            height: 100%;
+            max-height: var(--dp-panel-height, 500px);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-radius: 12px;
             padding: 14px;
-            color: #142133;
-            font: 14px/1.65 "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
-            background:
-              radial-gradient(circle at top right, rgba(132, 134, 255, 0.16), transparent 22%),
-              radial-gradient(circle at bottom left, rgba(15, 139, 141, 0.14), transparent 26%),
-              linear-gradient(180deg, rgba(255, 255, 255, 0.97), rgba(245, 247, 255, 0.95));
-            border: 1px solid rgba(132, 134, 255, 0.24);
-            box-shadow:
-              0 28px 64px rgba(57, 72, 102, 0.18),
-              inset 0 1px 0 rgba(255,255,255,0.8);
-            backdrop-filter: blur(16px);
+            padding-right: 0;
+            color: #ebebf0;
+            font: 13px/1.55 "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
+            background: #141418;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
             position: relative;
             scrollbar-width: thin;
             scrollbar-color: var(--dp-scrollbar-thumb) var(--dp-scrollbar-track);
           }
           .panel::-webkit-scrollbar,
           .sidebar-nav::-webkit-scrollbar,
+          .canvas::-webkit-scrollbar,
           .history-table-scroll::-webkit-scrollbar {
             width: var(--dp-scrollbar-size);
             height: var(--dp-scrollbar-size);
           }
           .panel::-webkit-scrollbar-track,
           .sidebar-nav::-webkit-scrollbar-track,
+          .canvas::-webkit-scrollbar-track,
           .history-table-scroll::-webkit-scrollbar-track {
             background: var(--dp-scrollbar-track);
           }
           .panel::-webkit-scrollbar-button,
           .sidebar-nav::-webkit-scrollbar-button,
+          .canvas::-webkit-scrollbar-button,
           .history-table-scroll::-webkit-scrollbar-button {
             display: none;
             width: 0;
@@ -345,97 +391,86 @@ window.DopparProfiler = {
           }
           .panel::-webkit-scrollbar-thumb,
           .sidebar-nav::-webkit-scrollbar-thumb,
+          .canvas::-webkit-scrollbar-thumb,
           .history-table-scroll::-webkit-scrollbar-thumb {
             background: var(--dp-scrollbar-thumb);
             border-radius: 999px;
           }
           .panel::-webkit-scrollbar-thumb:hover,
           .sidebar-nav::-webkit-scrollbar-thumb:hover,
+          .canvas::-webkit-scrollbar-thumb:hover,
           .history-table-scroll::-webkit-scrollbar-thumb:hover {
             background: var(--dp-scrollbar-thumb-hover);
           }
 
           .panel::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 26px;
-            pointer-events: none;
-            background: linear-gradient(180deg, rgba(255,255,255,0.56), transparent 22%);
+            display: none;
           }
 
           .workspace {
             position: relative;
             z-index: 1;
             display: grid;
-            grid-template-columns: 210px minmax(0, 1fr);
-            gap: 14px;
-            min-height: 420px;
-            align-items: start;
+            grid-template-columns: 48px minmax(0, 1fr);
+            gap: 0;
+            flex: 1 1 auto;
+            min-height: 0;
+            margin: -14px 0 -14px -14px;
+            overflow: hidden;
           }
           .sidebar {
-            position: sticky;
-            top: 0;
-            align-self: start;
-            display: grid;
-            grid-template-rows: auto minmax(0, 1fr);
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            width: 48px;
+            height: 100%;
             min-height: 0;
-            max-height: calc(min(78vh, var(--dp-panel-available-height, 78vh)) - 28px);
-            padding: 12px;
-            border-radius: 20px;
-            background: #18181B;
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            color: #ebebf0;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            padding: 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            color: #888899;
+            box-shadow: none;
             overflow: hidden;
           }
           .sidebar-brand {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 10px 10px;
-            margin-bottom: 6px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            justify-content: center;
+            flex: 0 0 auto;
+            padding: 14px 0 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
           }
           .sidebar-mark {
-            width: 40px;
-            height: 40px;
+            width: auto;
+            height: auto;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            flex: 0 0 40px;
-            border-radius: 14px;
-            background:
-              linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
-              linear-gradient(180deg, rgba(143,146,255,0.22), rgba(116,121,255,0.18));
-            border: 1px solid rgba(132, 134, 255, 0.2);
-            box-shadow:
-              0 10px 20px rgba(132, 134, 255, 0.24),
-              inset 0 1px 0 rgba(255,255,255,0.14);
+            flex: 0 0 auto;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            box-shadow: none;
           }
           .sidebar-mark img {
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
           }
-          .sidebar-title {
-            font-size: 15px;
-            font-weight: 800;
-            color: #ebebf0;
-            line-height: 1.08;
-          }
+          .sidebar-title,
           .sidebar-copy {
-            margin-top: 4px;
-            font-size: 11px;
-            color: #55566a;
+            display: none;
           }
           .sidebar-nav {
-            display: grid;
-            gap: 3px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
             min-height: 0;
+            flex: 1 1 auto;
             overflow-y: auto;
             overflow-x: hidden;
             padding-right: 0;
-            margin-right: -6px;
             overscroll-behavior: contain;
             scrollbar-width: thin;
             scrollbar-color: var(--dp-scrollbar-thumb) var(--dp-scrollbar-track);
@@ -443,31 +478,67 @@ window.DopparProfiler = {
           .sidebar-nav::-webkit-scrollbar-track {
             margin-block: 4px;
           }
-          .nav-section-label {
-            padding: 10px 10px 2px;
-            font-size: 10px;
-            letter-spacing: .16em;
-            text-transform: uppercase;
-            color: #55566a;
-            font-weight: 800;
-          }
-          .nav-section-copy {
-            padding: 0 10px 8px;
-            font-size: 11px;
-            line-height: 1.35;
-            color: #6a7184;
-            font-weight: 600;
-          }
-          .nav-section-divider {
-            height: 1px;
-            margin: 6px 10px 4px;
-            background: rgba(255,255,255,0.06);
-          }
-          .nav-main {
+          .nav-group {
+            position: relative;
             display: flex;
+            flex-direction: column;
+            gap: 4px;
+          }
+          .nav-group-divider {
+            height: 1px;
+            margin: 1px 3px;
+            background: rgba(255, 255, 255, 0.08);
+          }
+          .nav-rail {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+          }
+          .nav-rail-button {
+            appearance: none;
+            border: 0;
+            width: 48px;
+            height: 36px;
+            margin: 0;
+            padding: 0;
+            border-radius: 0;
+            background: transparent;
+            color: #888899;
+            cursor: pointer;
+            display: inline-flex;
             align-items: center;
-            gap: 12px;
-            min-width: 0;
+            justify-content: center;
+            position: relative;
+            transition: background 0.18s ease, opacity 0.18s ease;
+          }
+          .nav-rail-tooltip {
+            position: fixed;
+            padding: 7px 10px;
+            background: rgba(20, 20, 24, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            z-index: 2147483646;
+            transition: opacity 0.12s ease, visibility 0.12s ease;
+          }
+          .nav-rail-tooltip.is-visible {
+            opacity: 1;
+            visibility: visible;
+          }
+          .nav-rail-button:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+          }
+          .nav-rail-button.active {
+            background: rgba(255, 255, 255, 0.06);
+            color: #ffffff;
+            box-shadow: none;
           }
           .nav-icon {
             width: 18px;
@@ -476,7 +547,11 @@ window.DopparProfiler = {
             background-repeat: no-repeat;
             background-position: center;
             background-size: 18px 18px;
-            opacity: 0.9;
+            opacity: 0.72;
+          }
+          .nav-rail-button:hover .nav-icon,
+          .nav-rail-button.active .nav-icon {
+            opacity: 1;
           }
           .nav-icon-overview { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E"); }
           .nav-icon-history { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8v5l3 2'/%3E%3Cpath d='M3.05 11A9 9 0 1 1 6 17.3'/%3E%3Cpath d='M3 4v5h5'/%3E%3C/svg%3E"); }
@@ -490,39 +565,6 @@ window.DopparProfiler = {
           .nav-icon-session { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='16' height='16' rx='2'/%3E%3Cpath d='M8 9h8'/%3E%3Cpath d='M8 13h8'/%3E%3Cpath d='M8 17h5'/%3E%3C/svg%3E"); }
           .nav-icon-logs { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3h8l4 4v14H4V3h4'/%3E%3Cpath d='M14 3v5h5'/%3E%3Cpath d='M8 13h8'/%3E%3Cpath d='M8 17h6'/%3E%3C/svg%3E"); }
           .nav-icon-json { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 8c-1.5 0-2.5 1-2.5 2.5v3C5.5 15 4.5 16 3 16'/%3E%3Cpath d='M16 8c1.5 0 2.5 1 2.5 2.5v3c0 1 1 2 2.5 2'/%3E%3Cpath d='M10 6 8 18'/%3E%3Cpath d='M14 6l2 12'/%3E%3C/svg%3E"); }
-          .nav-label {
-            color: inherit;
-            font-size: 13px;
-            font-weight: 800;
-          }
-          .nav-button {
-            appearance: none;
-            border: 0;
-            width: 100%;
-            text-align: left;
-            padding: 9px 10px;
-            border-radius: 14px;
-            background: transparent;
-            color: #888899;
-            font: inherit;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 12px;
-            transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-          }
-          .nav-button:hover {
-            background: rgba(255,255,255,0.06);
-            color: #ebebf0;
-          }
-          .nav-button.active {
-            background: linear-gradient(135deg, rgba(15, 139, 141, 0.18), rgba(42, 114, 212, 0.14));
-            color: #2ab4b6;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-          }
           .nav-kicker {
             font-size: 10px;
             letter-spacing: .14em;
@@ -531,21 +573,28 @@ window.DopparProfiler = {
           }
           .canvas {
             min-width: 0;
+            min-height: 0;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 14px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--dp-scrollbar-thumb) var(--dp-scrollbar-track);
           }
           .view-section {
             display: none;
+            margin-bottom: 24px;
           }
           .view-section.active {
             display: block;
           }
           .hero {
-            padding: 18px;
-            border-radius: 22px;
-            background: rgba(255,255,255,0.72);
-            border: 1px solid rgba(132,134,255,0.12);
-            box-shadow:
-              inset 0 1px 0 rgba(255,255,255,0.8),
-              0 8px 20px rgba(37, 51, 77, 0.06);
+            padding: 0 0 16px;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: none;
             margin-bottom: 16px;
           }
           .hero-top {
@@ -590,15 +639,13 @@ window.DopparProfiler = {
             box-sizing: border-box;
             width: 100%;
             max-width: 100%;
-            min-height: 60px;
-            padding: 12px 16px;
-            border-radius: 16px;
-            background: #ffffff;
-            border: 1px solid rgba(17, 40, 61, 0.1);
-            box-shadow:
-              0 1px 2px rgba(15, 23, 42, 0.04),
-              0 10px 20px rgba(37, 51, 77, 0.04),
-              inset 0 1px 0 rgba(255,255,255,0.96);
+            min-height: 44px;
+            padding: 10px 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: none;
             margin: 0 0 12px;
             overflow: hidden;
           }
@@ -751,46 +798,50 @@ window.DopparProfiler = {
             gap: 12px;
           }
           .metric {
-            padding: 14px;
-            border-radius: 18px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(246,248,255,0.9));
-            border: 1px solid rgba(132,134,255,0.12);
-            box-shadow: 0 4px 12px rgba(37, 51, 77, 0.05);
+            padding: 12px 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            box-shadow: none;
           }
           .metric-label {
             font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: .16em;
-            color: #74829a;
-            font-weight: 800;
-            margin-bottom: 8px;
+            letter-spacing: .14em;
+            color: #888899;
+            font-weight: 700;
+            margin-bottom: 6px;
           }
           .metric-value {
-            font-size: 26px;
+            font-size: 22px;
             line-height: 1;
             font-weight: 800;
-            letter-spacing: -.04em;
-            color: #172033;
+            letter-spacing: -.03em;
+            color: #ffffff;
+            font-variant-numeric: tabular-nums;
           }
           .metric-note {
-            margin-top: 8px;
-            color: #66758d;
+            margin-top: 6px;
+            color: #55566a;
             font-size: 12px;
           }
 
           .section {
-            padding: 18px;
-            border-radius: 22px;
-            background: rgba(255,255,255,0.74);
-            border: 1px solid rgba(132,134,255,0.12);
-            box-shadow:
-              inset 0 1px 0 rgba(255,255,255,0.82),
-              0 10px 24px rgba(37, 51, 77, 0.05);
+            padding: 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: none;
+            margin-bottom: 12px;
+          }
+          .section:last-child {
+            margin-bottom: 0;
           }
           .section-title {
-            font-size: 17px;
-            font-weight: 800;
-            margin-bottom: 14px;
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 12px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -801,31 +852,46 @@ window.DopparProfiler = {
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            color: #172033;
+            color: #ffffff;
           }
           .section-copy {
-            color: #607089;
-            margin-bottom: 14px;
+            color: #888899;
+            margin-bottom: 12px;
+            font-size: 12px;
           }
-          .api-shell {
+          .json-api-shell {
             display: grid;
             gap: 12px;
           }
-          .api-eyebrow {
-            font-size: 10px;
-            letter-spacing: .18em;
-            text-transform: uppercase;
-            font-weight: 800;
-            color: #55566a;
-            margin-bottom: 12px;
-          }
-          .api-operation {
+          .api-group-card {
             display: grid;
-            gap: 14px;
-            padding: 18px;
-            border-radius: 16px;
+            gap: 12px;
+            padding: 14px;
+            border-radius: 8px;
             background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.08);
+            min-width: 0;
+          }
+          .api-payload-card {
+            gap: 0;
+            padding: 0;
+            overflow: hidden;
+          }
+          .api-payload-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            flex-wrap: wrap;
+            padding: 14px;
+          }
+          .api-payload-card .response-preview-scroll {
+            max-height: 460px;
+            overflow: auto;
+          }
+          .api-payload-card .code-block {
+            border-top: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0 0 8px 8px;
           }
           .api-line {
             display: flex;
@@ -837,26 +903,27 @@ window.DopparProfiler = {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            min-width: 58px;
-            padding: 8px 12px;
-            border-radius: 10px;
+            min-width: 52px;
+            padding: 6px 10px;
+            border-radius: 6px;
             background: rgba(34, 197, 94, 0.14);
             color: #22c55e;
             border: 1px solid rgba(34, 197, 94, 0.22);
             font-size: 11px;
-            font-weight: 900;
-            letter-spacing: .14em;
+            font-weight: 800;
+            letter-spacing: .12em;
             text-transform: uppercase;
           }
           .api-path {
             display: inline-flex;
             align-items: center;
             flex: 1;
-            min-height: 38px;
-            padding: 0 14px;
-            border-radius: 10px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.07);
+            min-height: 32px;
+            padding: 0 10px;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-left: 1px solid rgba(255,255,255,0.1);
             color: #ebebf0;
             font: 13px/1.4 "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
             word-break: break-all;
@@ -869,10 +936,10 @@ window.DopparProfiler = {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            padding: 7px 12px;
-            border-radius: 10px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
             color: #888899;
             font-size: 11px;
             font-weight: 700;
@@ -882,7 +949,7 @@ window.DopparProfiler = {
             transition: background .18s ease, color .18s ease;
           }
           .api-open-btn:hover {
-            background: rgba(255,255,255,0.09);
+            background: rgba(255,255,255,0.06);
             color: #ebebf0;
           }
           .api-actions {
@@ -900,10 +967,10 @@ window.DopparProfiler = {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
             color: #888899;
             font-size: 11px;
             font-weight: 700;
@@ -924,49 +991,24 @@ window.DopparProfiler = {
             color: #a78bfa;
             font-family: "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
           }
-          .api-response-shell {
-            display: grid;
-            gap: 0;
-            border-radius: 16px;
-            border: 1px solid rgba(255,255,255,0.07);
-            overflow: hidden;
-          }
-          .api-response-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-            padding: 12px 16px;
-            background: rgba(255,255,255,0.04);
-            border-bottom: 1px solid rgba(255,255,255,0.07);
-          }
-          .api-response-title {
-            font-size: 12px;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: .12em;
-            color: #55566a;
-          }
           .copy-action {
             display: inline-flex;
             align-items: center;
             gap: 7px;
-            padding: 6px 14px;
-            border-radius: 8px;
-            background: rgba(15, 139, 141, 0.16);
-            border: 1px solid rgba(15, 139, 141, 0.28);
-            color: #2ab4b6;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #ebebf0;
             font-size: 11px;
-            font-weight: 800;
-            letter-spacing: .06em;
+            font-weight: 700;
+            letter-spacing: .04em;
             cursor: pointer;
-            transition: background .18s ease, color .18s ease, transform .16s ease;
+            transition: background .18s ease, color .18s ease;
           }
           .copy-action:hover {
-            transform: translateY(-1px);
-            background: rgba(15, 139, 141, 0.22);
-            color: #3dcacb;
+            background: rgba(255,255,255,0.06);
+            color: #ffffff;
           }
           .copy-action.is-success {
             background: rgba(34, 197, 94, 0.14);
@@ -1002,10 +1044,10 @@ window.DopparProfiler = {
             gap: 10px;
           }
           .subsection-title {
-            color: #4f5d75;
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: .14em;
+            color: #888899;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .12em;
             text-transform: uppercase;
           }
 
@@ -1013,87 +1055,89 @@ window.DopparProfiler = {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 12px;
-            border-radius: 999px;
+            padding: 4px 8px;
+            border-radius: 6px;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: .12em;
+            letter-spacing: .08em;
             border: 1px solid transparent;
           }
-          .badge-info { background: rgba(132, 134, 255, 0.1); color: #5a5ef0; border-color: rgba(132, 134, 255, 0.16); }
-          .badge-success { background: rgba(20, 125, 100, 0.12); color: #147d64; border-color: rgba(20, 125, 100, 0.16); }
-          .badge-warning { background: rgba(242, 193, 78, 0.18); color: #b66912; border-color: rgba(242, 193, 78, 0.18); }
-          .badge-error { background: rgba(239, 68, 68, 0.12); color: #c9485b; border-color: rgba(239, 68, 68, 0.16); }
+          .badge-info { background: rgba(255,255,255,0.06); color: #ebebf0; border-color: rgba(255,255,255,0.1); }
+          .badge-success { background: rgba(34, 197, 94, 0.12); color: #22c55e; border-color: rgba(34, 197, 94, 0.2); }
+          .badge-warning { background: rgba(245, 158, 11, 0.12); color: #f59e0b; border-color: rgba(245, 158, 11, 0.2); }
+          .badge-error { background: rgba(239, 68, 68, 0.12); color: #ef4444; border-color: rgba(239, 68, 68, 0.2); }
 
           .row {
-            margin: 10px 0;
+            margin: 0;
             display: flex;
             align-items: flex-start;
             gap: 14px;
-            padding: 12px 14px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.78);
-            border: 1px solid rgba(132,134,255,0.1);
+            padding: 10px 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
           }
           .key {
             min-width: 108px;
-            color: #728198;
+            color: #888899;
             font-size: 11px;
-            font-weight: 800;
-            letter-spacing: .12em;
+            font-weight: 700;
+            letter-spacing: .1em;
             text-transform: uppercase;
           }
           .val {
             flex: 1;
-            color: #172033;
-            font-weight: 700;
+            color: #ebebf0;
+            font-weight: 600;
             word-break: break-word;
           }
 
           .stats-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
+            gap: 0 24px;
           }
           .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
           }
           .summary-card {
-            padding: 16px;
-            border-radius: 18px;
-            background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(246,248,255,0.92));
-            border: 1px solid rgba(132,134,255,0.12);
-            box-shadow: 0 6px 14px rgba(37, 51, 77, 0.05);
+            padding: 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: none;
           }
           .summary-label {
             font-size: 10px;
             text-transform: uppercase;
-            letter-spacing: .16em;
-            font-weight: 800;
-            color: #76829a;
-            margin-bottom: 10px;
+            letter-spacing: .14em;
+            font-weight: 700;
+            color: #888899;
+            margin-bottom: 8px;
           }
           .summary-value {
-            color: #172033;
-            font-size: 22px;
+            color: #ffffff;
+            font-size: 20px;
             line-height: 1.08;
-            letter-spacing: -.03em;
+            letter-spacing: -.02em;
             font-weight: 800;
+            font-variant-numeric: tabular-nums;
           }
           .summary-note {
-            margin-top: 8px;
+            margin-top: 6px;
             font-size: 12px;
-            color: #63738b;
+            color: #55566a;
           }
           .response-status-chip {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             padding: 8px 12px;
-            border-radius: 2px;
+            border-radius: 6px;
             font-size: 13px;
             line-height: 1;
             letter-spacing: .06em;
@@ -1121,33 +1165,33 @@ window.DopparProfiler = {
           }
           .history-loading {
             padding: 18px;
-            border-radius: 16px;
-            border: 1px dashed rgba(255,255,255,0.10);
-            background: rgba(255,255,255,0.03);
+            border-radius: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
             color: #888899;
             text-align: center;
             font-size: 13px;
-            font-weight: 700;
+            font-weight: 600;
           }
           .history-list {
             display: grid;
-            gap: 10px;
+            gap: 8px;
           }
           .history-item {
             display: grid;
             grid-template-columns: minmax(0, 1fr) auto;
             gap: 14px;
             align-items: center;
-            padding: 14px 16px;
-            border-radius: 16px;
+            padding: 12px 14px;
+            border-radius: 8px;
             text-decoration: none;
-            background: #18181B;
-            border: 1px solid rgba(255,255,255,0.07);
-            transition: border-color .18s ease, background .18s ease;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            transition: background .18s ease, border-color .18s ease;
           }
           .history-item:hover {
-            border-color: rgba(42,180,182,0.22);
-            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.14);
+            background: rgba(255,255,255,0.05);
           }
           .history-main {
             min-width: 0;
@@ -1225,6 +1269,9 @@ window.DopparProfiler = {
             display: grid;
             gap: 14px;
           }
+          .history-dashboard .history-table-shell {
+            margin-top: 2px;
+          }
           .history-header {
             display: flex;
             align-items: flex-start;
@@ -1240,26 +1287,26 @@ window.DopparProfiler = {
           }
           .history-range-pill {
             appearance: none;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            background: transparent;
             color: #888899;
-            padding: 6px 11px;
-            border-radius: 8px;
+            padding: 5px 9px;
+            border-radius: 6px;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             letter-spacing: .06em;
             text-transform: uppercase;
             cursor: pointer;
             transition: background .18s ease, color .18s ease, border-color .18s ease;
           }
           .history-range-pill:hover {
-            background: rgba(255,255,255,0.07);
+            background: rgba(255,255,255,0.06);
             color: #ebebf0;
           }
           .history-range-pill.active {
-            background: rgba(15, 139, 141, 0.16);
-            border-color: rgba(15, 139, 141, 0.28);
-            color: #2ab4b6;
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.16);
+            color: #ffffff;
           }
           .history-shell {
             gap: 18px;
@@ -1270,10 +1317,10 @@ window.DopparProfiler = {
             gap: 12px;
           }
           .history-card {
-            padding: 16px;
-            border-radius: 16px;
-            background: #18181B;
-            border: 1px solid rgba(255,255,255,0.07);
+            padding: 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
           }
           .history-card-wide {
             grid-column: 1 / -1;
@@ -1287,12 +1334,12 @@ window.DopparProfiler = {
             flex-wrap: wrap;
           }
           .history-card-title {
-            font-size: 10px;
-            letter-spacing: .16em;
-            text-transform: uppercase;
-            color: #55566a;
-            font-weight: 800;
-            margin-bottom: 8px;
+            font-size: 13px;
+            letter-spacing: -.01em;
+            text-transform: none;
+            color: #ffffff;
+            font-weight: 700;
+            margin-bottom: 0;
           }
           .history-card-value {
             color: #ebebf0;
@@ -1320,10 +1367,14 @@ window.DopparProfiler = {
             margin-bottom: 14px;
           }
           .history-kpi {
-            padding: 12px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
+            padding: 10px 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-right: 1px solid rgba(255,255,255,0.08);
+          }
+          .history-kpi:last-child {
+            border-right: 0;
           }
           .history-kpi-label {
             color: #55566a;
@@ -1459,43 +1510,47 @@ window.DopparProfiler = {
           }
           .history-toggle-group {
             display: inline-flex;
-            gap: 4px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 10px;
-            padding: 3px;
+            gap: 0;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 0;
+            padding: 0;
             flex-wrap: nowrap;
           }
           .history-toggle {
             appearance: none;
-            border: 1px solid transparent;
+            border: 0;
+            border-right: 1px solid rgba(255,255,255,0.1);
             background: transparent;
             color: #888899;
             padding: 6px 11px;
-            border-radius: 8px;
+            border-radius: 0;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
             cursor: pointer;
             white-space: nowrap;
-            transition: background .18s ease, color .18s ease, border-color .18s ease;
+            transition: background .18s ease, color .18s ease;
+          }
+          .history-toggle:last-child {
+            border-right: 0;
           }
           .history-toggle:hover {
             color: #ebebf0;
             background: rgba(255,255,255,0.06);
           }
           .history-toggle.active {
-            background: rgba(15, 139, 141, 0.18);
-            border-color: rgba(15, 139, 141, 0.26);
-            color: #2ab4b6;
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.1);
+            color: #ffffff;
           }
           .history-route-table {
             width: 100%;
             border-collapse: separate;
             border-spacing: 0;
             overflow: hidden;
-            border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.07);
-            background: #18181B;
+            border-radius: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
             table-layout: auto;
             min-width: 520px;
           }
@@ -1535,7 +1590,7 @@ window.DopparProfiler = {
             max-width: 100%;
             max-height: 380px;
             overflow: auto;
-            border-radius: 14px;
+            border-radius: 0;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             scrollbar-color: var(--dp-scrollbar-thumb) var(--dp-scrollbar-track);
@@ -1588,8 +1643,8 @@ window.DopparProfiler = {
             align-items: center;
             justify-content: center;
             min-width: 28px;
-            padding: 3px 1px;
-            border-radius: 999px;
+            padding: 3px 8px;
+            border-radius: 6px;
             font-size: 12px;
             font-weight: 800;
             line-height: 1;
@@ -1610,44 +1665,234 @@ window.DopparProfiler = {
           .history-col-avg,
           .history-col-max { width: 68px; }
           .history-empty-state {
-            padding: 24px 16px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.02);
-            border: 1px dashed rgba(255,255,255,0.09);
-            color: #55566a;
+            padding: 18px 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            color: #888899;
             font-size: 13px;
-            font-weight: 700;
-            text-align: center;
+            font-weight: 600;
+            text-align: left;
           }
-          .cache-table-shell {
+          .cache-shell {
             display: grid;
             gap: 12px;
-            min-width: 0;
-            margin-top: 14px;
           }
-          .cache-table-head {
+          .auth-shell {
+            display: grid;
+            gap: 12px;
+          }
+          .request-shell {
+            display: grid;
+            gap: 12px;
+          }
+          .response-shell {
+            display: grid;
+            gap: 12px;
+          }
+          .perf-shell {
+            display: grid;
+            gap: 12px;
+          }
+          .perf-group-card {
+            display: grid;
+            gap: 14px;
+            padding: 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            min-width: 0;
+          }
+          .perf-group-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 10px;
             flex-wrap: wrap;
           }
-          .cache-table-count {
-            color: #ebebf0;
-            font-size: 14px;
-            font-weight: 800;
-          }
-          .cache-table-note {
-            color: #888899;
-            font-size: 12px;
+          .perf-group-title {
+            font-size: 13px;
             font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -.01em;
+          }
+          .perf-group-card .cache-kpis {
+            padding-bottom: 0;
+            border-bottom: 0;
+          }
+          .perf-section {
+            display: grid;
+            gap: 10px;
+          }
+          .perf-section-label {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: #888899;
+          }
+          .perf-group-card .perf-metrics {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+          .perf-group-card .perf-metric {
+            padding: 0 14px;
+            border-left: 1px solid rgba(255,255,255,0.08);
+          }
+          .perf-group-card .perf-metric:nth-child(2n+1) {
+            padding-left: 0;
+            border-left: 0;
+          }
+          .request-stack,
+          .response-stack,
+          .perf-stack {
+            display: grid;
+            gap: 16px;
+          }
+          .perf-two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+          }
+          .perf-block {
+            display: grid;
+            gap: 10px;
+            min-width: 0;
+          }
+          .perf-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px 0;
+          }
+          .perf-metric {
+            min-width: 0;
+            padding: 0 18px;
+            border-left: 1px solid rgba(255,255,255,0.08);
+          }
+          .perf-metric:nth-child(3n+1) {
+            padding-left: 0;
+            border-left: 0;
+          }
+          .response-preview-head {
+            margin-bottom: 8px;
+          }
+          .auth-identity {
+            display: flex;
+            align-items: stretch;
+            flex-wrap: wrap;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+          }
+          .auth-identity-item {
+            flex: 1 1 140px;
+            min-width: 0;
+            padding: 0 18px;
+            border-left: 1px solid rgba(255,255,255,0.08);
+          }
+          .auth-identity-item:first-child {
+            padding-left: 0;
+            border-left: 0;
+          }
+          .auth-identity-label {
+            color: #55566a;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+          }
+          .auth-identity-value {
+            color: #ebebf0;
+            font-size: 15px;
+            font-weight: 700;
+            line-height: 1.35;
+            word-break: break-word;
+          }
+          .auth-block,
+          .request-block,
+          .response-block {
+            display: grid;
+            gap: 10px;
+          }
+          .auth-table,
+          .request-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border-radius: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
+          }
+          .auth-table th,
+          .auth-table td,
+          .request-table th,
+          .request-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            vertical-align: top;
+          }
+          .auth-table th,
+          .request-table th {
+            background: transparent;
+            color: #888899;
+            font-size: 11px;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            font-weight: 700;
+          }
+          .auth-table td,
+          .request-table td {
+            color: #ebebf0;
+            font-size: 13px;
+            font-weight: 600;
+            word-break: break-word;
+          }
+          .auth-table tr:last-child td,
+          .request-table tr:last-child td {
+            border-bottom: 0;
+          }
+          .cache-kpis {
+            display: flex;
+            align-items: stretch;
+            padding-bottom: 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+          }
+          .cache-kpi {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 0 18px;
+            border-left: 1px solid rgba(255,255,255,0.08);
+          }
+          .cache-kpi:first-child {
+            padding-left: 0;
+            border-left: 0;
+          }
+          .cache-kpi:last-child {
+            padding-right: 0;
+          }
+          .cache-kpi-label {
+            color: #55566a;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+          }
+          .cache-kpi-value {
+            color: #ebebf0;
+            font-size: 20px;
+            font-weight: 900;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
           }
           .cache-table-scroll {
             width: 100%;
             max-width: 100%;
             overflow-x: auto;
             overflow-y: hidden;
-            border-radius: 14px;
+            border-radius: 0;
             -webkit-overflow-scrolling: touch;
             scrollbar-width: thin;
             scrollbar-color: var(--dp-scrollbar-thumb) var(--dp-scrollbar-track);
@@ -1657,9 +1902,9 @@ window.DopparProfiler = {
             border-collapse: separate;
             border-spacing: 0;
             overflow: hidden;
-            border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.07);
-            background: #18181B;
+            border-radius: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
             table-layout: auto;
             min-width: 780px;
           }
@@ -1731,7 +1976,7 @@ window.DopparProfiler = {
             justify-content: center;
             min-width: 58px;
             padding: 4px 8px;
-            border-radius: 999px;
+            border-radius: 6px;
             font-size: 10px;
             font-weight: 900;
             letter-spacing: .10em;
@@ -1779,30 +2024,45 @@ window.DopparProfiler = {
             word-break: break-word;
           }
           .cache-value-details {
-            display: grid;
-            gap: 8px;
+            min-width: 0;
           }
           .cache-value-summary {
+            display: flex;
+            align-items: center;
+            gap: 6px;
             cursor: pointer;
-            color: #cbd5e1;
-            font-size: 12px;
-            font-weight: 700;
             list-style: none;
+            min-width: 0;
           }
           .cache-value-summary::-webkit-details-marker {
             display: none;
           }
           .cache-value-summary::before {
             content: "▸";
-            display: inline-block;
-            margin-right: 6px;
+            flex: 0 0 auto;
+            color: #888899;
+            font-size: 12px;
+            line-height: 1;
             transition: transform .18s ease;
+          }
+          .cache-value-summary-text {
+          max-width: 300px;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: #ebebf0;
+            font-size: 12px;
+            font-family: "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
+            font-weight: 400;
+            line-height: 1.4;
           }
           .cache-value-details[open] .cache-value-summary::before {
             transform: rotate(90deg);
           }
           .cache-value-body {
-            margin-top: 2px;
+            margin-top: 8px;
           }
           .cache-col-type { width: 86px; }
           .cache-col-key { width: 180px; }
@@ -1866,27 +2126,27 @@ window.DopparProfiler = {
             border-collapse: separate;
             border-spacing: 0;
             overflow: hidden;
-            border-radius: 16px;
-            border: 1px solid rgba(132,134,255,0.12);
-            background: rgba(255,255,255,0.86);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
           }
           .property-table th,
           .property-table td {
-            padding: 13px 14px;
+            padding: 12px 14px;
             text-align: left;
-            border-bottom: 1px solid rgba(132,134,255,0.08);
+            border-bottom: 1px solid rgba(255,255,255,0.08);
             vertical-align: top;
           }
           .property-table th {
-            background: rgba(132,134,255,0.08);
-            color: #53617a;
+            background: rgba(255,255,255,0.03);
+            color: #888899;
             font-size: 11px;
             letter-spacing: .12em;
             text-transform: uppercase;
-            font-weight: 800;
+            font-weight: 700;
           }
           .property-table td {
-            color: #172033;
+            color: #ebebf0;
             font-size: 13px;
             font-weight: 600;
             word-break: break-word;
@@ -1940,29 +2200,26 @@ window.DopparProfiler = {
             word-break: break-word;
             overflow-x: auto;
           }
-          .api-response-shell > .code-block:last-child {
-            border-radius: 0 0 15px 15px;
-          }
           .response-preview-scroll {
             max-height: 460px;
             overflow: auto;
           }
           .response-preview-scroll > .code-block {
-            border-radius: 0 0 15px 15px;
+            border-radius: 0;
           }
           .code-block-compact {
             padding: 10px 12px;
-            border-radius: 12px;
+            border-radius: 0;
             font-size: 11px;
           }
           .json {
             font: 12px/1.6 "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
-            color: #172033;
-            background: rgba(246,248,255,0.96);
-            border: 1px solid rgba(132,134,255,0.1);
-            border-radius: 16px;
+            color: #ebebf0;
+            background: #0d0d10;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0;
             padding: 14px 16px;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+            box-shadow: none;
           }
           .json > .json__item {
             display: block;
@@ -2053,13 +2310,25 @@ window.DopparProfiler = {
           }
           .log-list {
             display: grid;
+            gap: 10px;
+          }
+          .logs-shell {
+            display: grid;
             gap: 12px;
           }
           .log-card {
+            display: grid;
+            gap: 8px;
             padding: 14px;
-            border-radius: 16px;
-            border: 1px solid rgba(132,134,255,0.1);
-            background: rgba(255,255,255,0.82);
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+          }
+          .log-card .code-block {
+            margin: 0 -14px -14px;
+            padding: 12px 14px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0 0 8px 8px;
           }
           .log-head {
             display: flex;
@@ -2067,148 +2336,188 @@ window.DopparProfiler = {
             justify-content: space-between;
             gap: 10px;
             flex-wrap: wrap;
-            margin-bottom: 10px;
           }
           .log-level {
             display: inline-flex;
             align-items: center;
-            padding: 5px 10px;
-            border-radius: 999px;
+            padding: 3px 8px;
+            border-radius: 6px;
             font-size: 10px;
-            letter-spacing: .14em;
+            letter-spacing: .1em;
             text-transform: uppercase;
-            font-weight: 800;
-            background: rgba(132,134,255,0.1);
-            color: #5a5ef0;
+            font-weight: 700;
+            background: rgba(255,255,255,0.06);
+            color: #ebebf0;
+            border: 1px solid rgba(255,255,255,0.1);
           }
           .log-time {
-            color: #728198;
+            color: #888899;
             font-size: 12px;
-            font-weight: 700;
+            font-weight: 600;
           }
           .log-message {
-            color: #172033;
-            font-weight: 700;
-            margin-bottom: 10px;
+            color: #ebebf0;
+            font-weight: 600;
             word-break: break-word;
           }
           .pill-row {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 10px;
+            margin-top: 8px;
           }
           .pill {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: rgba(132,134,255,0.08);
-            border: 1px solid rgba(132,134,255,0.12);
-            color: #4f5d75;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #888899;
             font-size: 11px;
-            font-weight: 700;
+            font-weight: 600;
           }
 
-          .sql-list { display: grid; gap: 12px; }
+          .sql-list { display: grid; gap: 10px; }
+          .sql-shell {
+            display: grid;
+            gap: 12px;
+          }
           .sql-item,
           .redirect-chain-item {
-            padding: 16px;
-            border-radius: 16px;
-            background: rgba(255,255,255,0.86);
-            border: 1px solid rgba(132,134,255,0.12);
+            padding: 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
           }
           .sql-header,
           .redirect-chain-header {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             flex-wrap: wrap;
             align-items: center;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
+          }
+          .sql-header > div > .badge,
+          .sql-header > div > .sql-time,
+          .sql-header > div > .sql-rows {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            height: 22px;
+            padding: 0 8px;
+            line-height: 1;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 6px;
+            vertical-align: middle;
+          }
+          .sql-header > div > .badge {
+            gap: 0;
+            text-transform: none;
+            letter-spacing: 0;
           }
           .sql-time,
           .redirect-chain-duration {
-            color: #147d64;
-            font-weight: 800;
+            color: #22c55e;
+            font-weight: 700;
             font-size: 12px;
-            padding: 4px 10px;
-            border-radius: 999px;
-            background: rgba(20, 125, 100, 0.12);
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.18);
           }
           .sql-rows,
           .redirect-chain-method,
           .redirect-chain-status {
             font-size: 11px;
-            font-weight: 800;
-            border-radius: 999px;
-            padding: 4px 10px;
-            background: rgba(132,134,255,0.08);
-            color: #596883;
+            font-weight: 700;
+            border-radius: 6px;
+            padding: 3px 8px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #888899;
           }
           .sql-query,
           .sql-bindings,
           .redirect-chain-arrow {
-            background: rgba(246,248,255,0.96);
-            border: 1px solid rgba(132,134,255,0.1);
-            border-radius: 14px;
+            background: #0d0d10;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 0;
             padding: 12px 14px;
             font-family: "Berkeley Mono", "SFMono-Regular", Consolas, monospace;
           }
           .sql-query,
           .redirect-chain-path {
-            color: #172033;
+            color: #ebebf0;
             word-break: break-word;
           }
           .sql-bindings,
           .redirect-chain-arrow {
             margin-top: 10px;
-            color: #607089;
+            color: #888899;
             font-size: 12px;
           }
           .sql-error {
             margin-top: 10px;
-            color: #bf3c44;
-            background: rgba(191, 60, 68, 0.08);
-            border: 1px solid rgba(191, 60, 68, 0.14);
-            border-radius: 12px;
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.16);
+            border-radius: 0;
             padding: 10px 12px;
             font-weight: 700;
           }
           .no-data {
-            color: #728198;
-            font-style: italic;
+            color: #888899;
+            font-style: normal;
+            padding: 18px 0;
             text-align: center;
-            padding: 30px 16px;
-            background: rgba(255,255,255,0.56);
-            border-radius: 16px;
-            border: 1px dashed rgba(132,134,255,0.18);
+            background: transparent;
+            border-radius: 0px 8px;
+            border: 0;
+            border-top: 1px solid rgba(255,255,255,0.08);
           }
 
           .panel[data-theme="dark"] {
             color: #ebebf0;
-            background: #09090B;
+            background: #141418;
             border-color: rgba(255, 255, 255, 0.08);
-            box-shadow:
-              0 28px 64px rgba(0, 0, 0, 0.6),
-              inset 0 1px 0 rgba(255,255,255,0.04);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
           }
           .panel[data-theme="dark"]::before {
-            background: none;
+            display: none;
           }
           .panel[data-theme="dark"] .hero,
           .panel[data-theme="dark"] .section,
           .panel[data-theme="dark"] .summary-card,
-          .panel[data-theme="dark"] .metric,
           .panel[data-theme="dark"] .sql-item,
           .panel[data-theme="dark"] .redirect-chain-item,
           .panel[data-theme="dark"] .log-card,
+          .panel[data-theme="dark"] .history-card,
+          .panel[data-theme="dark"] .perf-group-card,
+          .panel[data-theme="dark"] .api-group-card,
+          .panel[data-theme="dark"] .history-item {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.08);
+            box-shadow: none;
+          }
+          .panel[data-theme="dark"] .metric,
           .panel[data-theme="dark"] .cache-op-card,
-          .panel[data-theme="dark"] .property-table,
-          .panel[data-theme="dark"] .row {
-            background: #18181B;
-            border-color: rgba(255,255,255,0.07);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+          .panel[data-theme="dark"] .cache-kpi,
+          .panel[data-theme="dark"] .auth-identity-item,
+          .panel[data-theme="dark"] .perf-metric,
+          .panel[data-theme="dark"] .row,
+          .panel[data-theme="dark"] .history-kpi {
+            background: transparent;
+            border-color: rgba(255,255,255,0.08);
+            box-shadow: none;
+          }
+          .panel[data-theme="dark"] .property-table {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.08);
+            box-shadow: none;
           }
           .panel[data-theme="dark"] .hero-request-bar,
           .panel[data-theme="dark"] .code-block,
@@ -2219,13 +2528,12 @@ window.DopparProfiler = {
             background: #0d0d10;
             border-color: rgba(255,255,255,0.08);
             color: #ebebf0;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            box-shadow: none;
           }
           .panel[data-theme="dark"] .hero-url,
           .panel[data-theme="dark"] .hero-copy,
           .panel[data-theme="dark"] .summary-note,
           .panel[data-theme="dark"] .metric-note,
-          .panel[data-theme="dark"] .nav-section-label,
           .panel[data-theme="dark"] .history-duration,
           .panel[data-theme="dark"] .history-captured,
           .panel[data-theme="dark"] .history-request-id,
@@ -2248,7 +2556,6 @@ window.DopparProfiler = {
           .panel[data-theme="dark"] .summary-value,
           .panel[data-theme="dark"] .metric-value,
           .panel[data-theme="dark"] .section-title-main,
-          .panel[data-theme="dark"] .nav-section-copy,
           .panel[data-theme="dark"] .history-route,
           .panel[data-theme="dark"] .history-card-value,
           .panel[data-theme="dark"] .history-route-count,
@@ -2257,7 +2564,6 @@ window.DopparProfiler = {
           .panel[data-theme="dark"] .log-message,
           .panel[data-theme="dark"] .sql-query,
           .panel[data-theme="dark"] .redirect-chain-path,
-          .panel[data-theme="dark"] .api-response-title,
           .panel[data-theme="dark"] .api-path,
           .panel[data-theme="dark"] .property-table td,
           .panel[data-theme="dark"] .json,
@@ -2287,9 +2593,12 @@ window.DopparProfiler = {
           .panel[data-theme="dark"] .history-item,
           .panel[data-theme="dark"] .history-card,
           .panel[data-theme="dark"] .history-kpi,
-          .panel[data-theme="dark"] .nav-section-divider,
+          .panel[data-theme="dark"] .cache-kpi,
+          .panel[data-theme="dark"] .nav-group-divider,
           .panel[data-theme="dark"] .history-route-table,
           .panel[data-theme="dark"] .cache-detail-table,
+          .panel[data-theme="dark"] .auth-table,
+          .panel[data-theme="dark"] .request-table,
           .panel[data-theme="dark"] .history-error-item,
           .panel[data-theme="dark"] .history-search,
           .panel[data-theme="dark"] .history-toggle,
@@ -2298,21 +2607,28 @@ window.DopparProfiler = {
             border-color: rgba(255,255,255,0.07);
           }
           .panel[data-theme="dark"] .history-item {
-            background: #18181B;
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.08);
           }
-          .panel[data-theme="dark"] .history-card,
+          .panel[data-theme="dark"] .history-card {
+            background: rgba(255,255,255,0.03);
+            border-color: rgba(255,255,255,0.08);
+            box-shadow: none;
+          }
           .panel[data-theme="dark"] .history-kpi,
           .panel[data-theme="dark"] .history-route-table,
           .panel[data-theme="dark"] .cache-detail-table,
+          .panel[data-theme="dark"] .auth-table,
+          .panel[data-theme="dark"] .request-table,
           .panel[data-theme="dark"] .history-error-item,
           .panel[data-theme="dark"] .history-search,
           .panel[data-theme="dark"] .history-toggle,
           .panel[data-theme="dark"] .history-range-pill,
           .panel[data-theme="dark"] .history-empty-state {
-            background: #18181B;
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+            background: transparent;
+            box-shadow: none;
           }
-          .panel[data-theme="dark"] .nav-section-divider {
+          .panel[data-theme="dark"] .nav-group-divider {
             background: rgba(255,255,255,0.06);
             box-shadow: none;
           }
@@ -2344,14 +2660,14 @@ window.DopparProfiler = {
           .panel[data-theme="dark"] .history-method-chip[data-method="OPTIONS"] { color: #60a5fa; }
           .panel[data-theme="dark"] .history-method-chip[data-method="HEAD"] { color: #c4b5fd; }
           .panel[data-theme="dark"] .history-toggle.active {
-            background: rgba(15, 139, 141, 0.18);
-            border-color: rgba(15, 139, 141, 0.26);
-            color: #2ab4b6;
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.1);
+            color: #ffffff;
           }
           .panel[data-theme="dark"] .history-range-pill.active {
-            background: rgba(15, 139, 141, 0.16);
-            border-color: rgba(15, 139, 141, 0.28);
-            color: #2ab4b6;
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.16);
+            color: #ffffff;
           }
           .panel[data-theme="dark"] .history-route-table th {
             background: rgba(255,255,255,0.04);
@@ -2359,8 +2675,14 @@ window.DopparProfiler = {
           .panel[data-theme="dark"] .cache-detail-table th {
             background: rgba(255,255,255,0.04);
           }
+          .panel[data-theme="dark"] .auth-table th,
+          .panel[data-theme="dark"] .request-table th {
+            background: rgba(255,255,255,0.04);
+          }
           .panel[data-theme="dark"] .history-route-table td,
           .panel[data-theme="dark"] .cache-detail-table td,
+          .panel[data-theme="dark"] .auth-table td,
+          .panel[data-theme="dark"] .request-table td,
           .panel[data-theme="dark"] .history-search,
           .panel[data-theme="dark"] .history-toggle,
           .panel[data-theme="dark"] .history-range-pill {
@@ -2457,9 +2779,7 @@ window.DopparProfiler = {
           }
           .panel[data-theme="dark"] .section-copy,
           .panel[data-theme="dark"] .metric-label,
-          .panel[data-theme="dark"] .summary-label,
-          .panel[data-theme="dark"] .api-response-title,
-          .panel[data-theme="dark"] .api-eyebrow {
+          .panel[data-theme="dark"] .summary-label {
             color: #55566a;
           }
           .panel[data-theme="dark"] .hero-request-copy-icon {
@@ -2491,29 +2811,55 @@ window.DopparProfiler = {
 
           .ov-dashboard {
             display: grid;
-            gap: 14px;
+            gap: 22px;
             margin-top: 4px;
           }
-          .ov-section-label {
+          .ov-group {
+            display: grid;
+            gap: 12px;
+            min-width: 0;
+          }
+          .ov-group + .ov-group {
+            padding-top: 18px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+          }
+          .ov-group-label {
             font-size: 10px;
-            letter-spacing: .18em;
+            letter-spacing: .16em;
             text-transform: uppercase;
             color: #55566a;
-            font-weight: 800;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            font-weight: 700;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 10px;
+          }
+          .ov-group-label span {
+            color: #55566a;
+            font-weight: 600;
+            letter-spacing: .08em;
+          }
+          .ov-section-label {
+            font-size: 13px;
+            letter-spacing: -.01em;
+            text-transform: none;
+            color: #ffffff;
+            font-weight: 700;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
           }
           .ov-two-col {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            gap: 12px;
           }
           .ov-app-stack {
             display: grid;
-            gap: 14px;
+            gap: 12px;
           }
           .ov-kpi-chip {
             font-size: 11px;
@@ -2552,10 +2898,16 @@ window.DopparProfiler = {
           }
           .ov-stat-card {
             min-width: 0;
-            padding: 10px 12px;
-            border-radius: 10px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.06);
+            padding: 10px 0;
+            border-radius: 0;
+            background: transparent;
+            border: 0;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            padding-right: 12px;
+          }
+          .ov-stat-card:last-child {
+            border-right: 0;
+            padding-right: 0;
           }
           .ov-stat-label {
             font-size: 10px;
@@ -2594,13 +2946,13 @@ window.DopparProfiler = {
             gap: 6px;
             min-width: 0;
             max-width: 100%;
-            padding: 6px 9px;
-            border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.07);
-            background: rgba(255,255,255,0.03);
-            color: #cdd5e4;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: transparent;
+            color: #888899;
             font-size: 11px;
-            font-weight: 800;
+            font-weight: 700;
           }
           .ov-chip-value {
             color: #ebebf0;
@@ -2639,15 +2991,15 @@ window.DopparProfiler = {
           }
           .perf-bar-track {
             position: relative;
-            height: 8px;
-            border-radius: 999px;
-            background: rgba(255,255,255,0.06);
+            height: 4px;
+            border-radius: 0;
+            background: rgba(255,255,255,0.08);
             overflow: hidden;
           }
           .perf-bar-fill {
             position: absolute;
             inset: 0 auto 0 0;
-            border-radius: 999px;
+            border-radius: 0;
           }
           .perf-bar-fill-sql {
             background: linear-gradient(90deg, rgba(96,165,250,0.95), rgba(59,130,246,0.7));
@@ -2683,9 +3035,9 @@ window.DopparProfiler = {
             margin-top: 12px;
             max-height: 320px;
             overflow: auto;
-            border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.06);
-            background: rgba(255,255,255,0.02);
+            border-radius: 0;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: transparent;
             -webkit-overflow-scrolling: touch;
           }
           .ov-slow-table {
@@ -2754,14 +3106,15 @@ window.DopparProfiler = {
             white-space: nowrap;
           }
           .ov-empty {
-            padding: 20px 16px;
-            color: #55566a;
+            padding: 16px 0;
+            color: #888899;
             font-size: 13px;
-            font-weight: 700;
-            text-align: center;
-            background: rgba(255,255,255,0.02);
-            border-radius: 12px;
-            border: 1px dashed rgba(255,255,255,0.07);
+            font-weight: 600;
+            text-align: left;
+            background: transparent;
+            border-radius: 0;
+            border: 0;
+            border-top: 1px solid rgba(255,255,255,0.08);
             margin-top: 10px;
           }
 
@@ -2779,16 +3132,60 @@ window.DopparProfiler = {
           }
           @media (max-width: 820px) {
             .panel { width: 100%; padding: 12px; }
-            .workspace { grid-template-columns: 1fr; }
-            .sidebar-nav { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+            .workspace {
+              grid-template-columns: 48px minmax(0, 1fr);
+              gap: 0;
+              margin: -12px 0 -12px -12px;
+            }
+            .sidebar { width: 48px; padding: 0; }
+            .sidebar-brand { padding-top: 12px; }
+            .canvas { padding: 12px; }
             .hero-top, .row { flex-direction: column; }
             .hero-head {
               width: 100%;
             }
             .history-overview-grid,
             .history-kpis,
+            .cache-kpis,
             .ov-two-col,
+            .perf-two-col,
             .stats-grid { grid-template-columns: 1fr; }
+            .perf-metrics {
+              grid-template-columns: 1fr;
+            }
+            .perf-metric {
+              padding: 10px 0;
+              border-left: 0;
+              border-bottom: 1px solid rgba(255,255,255,0.08);
+            }
+            .perf-metric:last-child {
+              border-bottom: 0;
+              padding-bottom: 0;
+            }
+            .cache-kpis {
+              flex-direction: column;
+            }
+            .cache-kpi {
+              padding: 10px 0;
+              border-left: 0;
+              border-bottom: 1px solid rgba(255,255,255,0.08);
+            }
+            .cache-kpi:last-child {
+              border-bottom: 0;
+              padding-bottom: 0;
+            }
+            .auth-identity {
+              flex-direction: column;
+            }
+            .auth-identity-item {
+              padding: 10px 0;
+              border-left: 0;
+              border-bottom: 1px solid rgba(255,255,255,0.08);
+            }
+            .auth-identity-item:last-child {
+              border-bottom: 0;
+              padding-bottom: 0;
+            }
             .history-table-head,
             .history-search-wrap {
               align-items: stretch;
@@ -2831,7 +3228,7 @@ window.DopparProfiler = {
           const nPlusOneCount = Number(data.sql_n_plus_one_count || 0);
           const nPlusOneHints = Array.isArray(data.sql_n_plus_one_hints) ? data.sql_n_plus_one_hints : [];
           sqlSection = `
-            <div class="section">
+            <div class="sql-shell">
               <div class="section-title">
                 <span class="section-title-main">Database Queries</span>
                 <span>
@@ -2892,7 +3289,7 @@ window.DopparProfiler = {
           `;
         } else {
           sqlSection = `
-            <div class="section">
+            <div class="sql-shell">
               <div class="section-title"><span class="section-title-main">Database Queries</span></div>
               <div class="no-data">No database queries detected</div>
             </div>
@@ -2954,46 +3351,60 @@ window.DopparProfiler = {
         }
         
         // Build auth section
-        let authSection = '<div class="section"><div class="section-title"><span class="section-title-main">Authentication</span></div><div class="no-data">No authenticated user context captured for this request</div></div>';
+        let authSection = `
+          <div class="auth-shell">
+            <div class="section-title"><span class="section-title-main">Authentication</span></div>
+            <div class="no-data">No authenticated user context captured for this request</div>
+          </div>
+        `;
         if (data.auth_authenticated) {
           const userName = escapeHtml(data.auth_user_name || 'User');
           const userEmail = escapeHtml(data.auth_user_email || '');
           const authMeta = {};
           if (data.auth_user_id !== null && data.auth_user_id !== undefined) authMeta['User ID'] = data.auth_user_id;
           if (data.auth_guard) authMeta['Guard'] = data.auth_guard;
+          const authIdentityItems = [
+            `<div class="auth-identity-item"><div class="auth-identity-label">User</div><div class="auth-identity-value">${userName}</div></div>`,
+            userEmail ? `<div class="auth-identity-item"><div class="auth-identity-label">Email</div><div class="auth-identity-value">${userEmail}</div></div>` : '',
+            authMeta['User ID'] !== undefined ? `<div class="auth-identity-item"><div class="auth-identity-label">User ID</div><div class="auth-identity-value">${escapeHtml(String(authMeta['User ID']))}</div></div>` : '',
+            authMeta['Guard'] ? `<div class="auth-identity-item"><div class="auth-identity-label">Guard</div><div class="auth-identity-value">${escapeHtml(String(authMeta['Guard']))}</div></div>` : '',
+          ].filter(Boolean).join('');
           authSection = `
-            <div class="section">
+            <div class="auth-shell">
               <div class="section-title">
                 <span class="section-title-main">Authentication</span>
                 <span class="badge badge-success">Authenticated</span>
               </div>
-              <div class="row"><span class="key">User:</span> <span class="val">${userName}</span></div>
-              ${userEmail ? `<div class="row"><span class="key">Email:</span> <span class="val">${userEmail}</span></div>` : ''}
-              ${hasEntries(authMeta) ? buildSubsection('Metadata', buildPropertyTable(authMeta, 'Property', 'Value')) : ''}
-              ${hasEntries(data.auth_user) ? buildSubsection('User Payload', buildPropertyTable(data.auth_user, 'Property', 'Value')) : ''}
+              <div class="auth-identity">${authIdentityItems}</div>
+              ${hasEntries(data.auth_user) ? `
+                <div class="auth-block">
+                  <div class="subsection-title">User Payload</div>
+                  ${buildPropertyTable(data.auth_user, 'Property', 'Value', 'auth-table')}
+                </div>
+              ` : ''}
             </div>
           `;
         }
 
 
         const requestDetailsSection = `
-          <div class="section">
+          <div class="request-shell">
             <div class="section-title"><span class="section-title-main">Request Payload</span></div>
-            <div class="section-stack">
-              ${buildSubsection('Headers', buildPropertyTable(data.request_headers, 'Header', 'Value'))}
-              ${buildSubsection('Query Parameters', buildPropertyTable(data.request_query, 'Parameter', 'Value'))}
-              ${buildSubsection('POST Parameters', buildPropertyTable(data.request_params, 'Parameter', 'Value'))}
-              ${buildSubsection('Request Body', buildCodeBlock(data.request_body))}
-              ${buildSubsection('Cookies', buildPropertyTable(data.request_cookies, 'Cookie', 'Value'))}
-              ${buildSubsection('Uploaded Files', buildFilesTable(data.request_files))}
-              ${buildSubsection('Server', buildPropertyTable(data.request_server, 'Variable', 'Value'))}
+            <div class="request-stack">
+              ${buildRequestBlock('Headers', buildPropertyTable(data.request_headers, 'Header', 'Value', 'request-table'))}
+              ${buildRequestBlock('Query Parameters', buildPropertyTable(data.request_query, 'Parameter', 'Value', 'request-table'))}
+              ${buildRequestBlock('POST Parameters', buildPropertyTable(data.request_params, 'Parameter', 'Value', 'request-table'))}
+              ${buildRequestBlock('Request Body', buildCodeBlock(data.request_body))}
+              ${buildRequestBlock('Cookies', buildPropertyTable(data.request_cookies, 'Cookie', 'Value', 'request-table'))}
+              ${buildRequestBlock('Uploaded Files', buildFilesTable(data.request_files))}
+              ${buildRequestBlock('Server', buildPropertyTable(data.request_server, 'Variable', 'Value', 'request-table'))}
             </div>
             ${!hasEntries(data.request_headers) && !hasEntries(data.request_query) && !hasEntries(data.request_params) && !data.request_body && !hasEntries(data.request_cookies) && !hasEntries(data.request_files) && !hasEntries(data.request_server) ? '<div class="no-data">No detailed request payload captured</div>' : ''}
           </div>
         `;
 
         const historySection = `
-          <div class="section history-dashboard">
+          <div class="history-dashboard">
             <div class="history-header">
               <div>
                 <div class="section-title"><span class="section-title-main">Requests</span></div>
@@ -3025,37 +3436,54 @@ window.DopparProfiler = {
           Number(data.redirect_count || 0) > 0 ? { label: 'Redirect chain followed', value: `${escapeHtml(data.redirect_count || 0)} hop${Number(data.redirect_count || 0) === 1 ? '' : 's'}` } : null,
           data.exception_class ? { label: 'Exception captured', value: escapeHtml(String(data.exception_class).split(String.fromCharCode(92)).pop() || data.exception_class) } : null,
         ].filter(Boolean);
+        const buildPerfMetricGrid = (metrics) => `
+          <div class="perf-metrics">
+            ${metrics.map((metric) => `
+              <div class="perf-metric">
+                <div class="cache-kpi-label">${escapeHtml(metric.label)}</div>
+                <div class="cache-kpi-value">${metric.value}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
         const performanceSection = `
-          <div class="section">
-            <div class="section-title"><span class="section-title-main">Performance Profile</span></div>
-            <div class="summary-grid">
-              <div class="summary-card">
-                <div class="summary-label">Duration</div>
-                <div class="summary-value">${escapeHtml(data.duration_ms?.toFixed?.(1) ?? data.duration_ms)} ms</div>
-                <div class="summary-note">Total application runtime for this request.</div>
+          <div class="perf-shell">
+            <div class="section-title">
+              <span class="section-title-main">Performance Profile</span>
+              <span>
+                <span class="badge badge-info">${escapeHtml(perfDurationMs.toFixed(1))} ms</span>
+                <span class="badge ${perfWarnings.length ? 'badge-warning' : 'badge-success'}">${perfWarnings.length ? `${perfWarnings.length} flags` : 'Healthy'}</span>
+              </span>
+            </div>
+            <div class="perf-group-card">
+              <div class="perf-group-head">
+                <div class="perf-group-title">Overview</div>
               </div>
-              <div class="summary-card">
-                <div class="summary-label">Peak Memory</div>
-                <div class="summary-value">${((data.memory_peak || 0) / (1024*1024)).toFixed(2)} MB</div>
-                <div class="summary-note">Maximum memory footprint recorded.</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Response Size</div>
-                <div class="summary-value">${formatBytes(data.response_body_size || 0)}</div>
-                <div class="summary-note">Body size returned to the client.</div>
-              </div>
-              <div class="summary-card">
-                <div class="summary-label">Outgoing HTTP</div>
-                <div class="summary-value">${escapeHtml(data.http_requests_count || 0)}</div>
-                <div class="summary-note">${escapeHtml(data.http_requests_total_time_ms?.toFixed?.(2) ?? data.http_requests_total_time_ms ?? 0)} ms total across external calls.</div>
+              <div class="cache-kpis">
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Duration</div>
+                  <div class="cache-kpi-value">${escapeHtml(data.duration_ms?.toFixed?.(1) ?? data.duration_ms)} ms</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Peak Memory</div>
+                  <div class="cache-kpi-value">${((data.memory_peak || 0) / (1024*1024)).toFixed(2)} MB</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Response Size</div>
+                  <div class="cache-kpi-value">${formatBytes(data.response_body_size || 0)}</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Outgoing HTTP</div>
+                  <div class="cache-kpi-value">${escapeHtml(data.http_requests_count || 0)}</div>
+                </div>
               </div>
             </div>
-            <div class="ov-dashboard">
-              <div class="ov-two-col">
-                <div>
-                  <div class="ov-section-label">
-                    <span>Timing Mix</span>
-                    <span class="ov-kpi-chip">${escapeHtml(perfDurationMs.toFixed(1))} ms total</span>
+            <div class="perf-section">
+              <div class="perf-section-label">Timing & Request Signals</div>
+              <div class="perf-two-col">
+                <div class="perf-group-card">
+                  <div class="perf-group-head">
+                    <div class="perf-group-title">Timing Mix</div>
                   </div>
                   <div class="ov-app-headline">${escapeHtml(perfAppMs.toFixed(2))} ms stayed inside app work</div>
                   <div class="ov-app-sub">Breakdown of observed request time between SQL, outbound HTTP, and everything else in the app lifecycle.</div>
@@ -3083,10 +3511,9 @@ window.DopparProfiler = {
                     </div>
                   </div>
                 </div>
-                <div>
-                  <div class="ov-section-label">
-                    <span>Request Signals</span>
-                    <span class="ov-kpi-chip ${perfWarnings.length ? 'ov-kpi-warn' : ''}">${perfWarnings.length ? `${perfWarnings.length} flags` : 'Healthy'}</span>
+                <div class="perf-group-card">
+                  <div class="perf-group-head">
+                    <div class="perf-group-title">Request Signals</div>
                   </div>
                   <div class="ov-app-headline">${escapeHtml(data.response_status || data.status || 0)} response with ${escapeHtml(data.logs_total_count || 0)} log${Number(data.logs_total_count || 0) === 1 ? '' : 's'}</div>
                   <div class="ov-app-sub">Fast high-signal checks for issues that matter in a single request: slow SQL, N+1 hints, cache misses, redirects, and exceptions.</div>
@@ -3102,82 +3529,35 @@ window.DopparProfiler = {
                   ` : '<div class="ov-empty">No obvious performance warnings were detected in this request.</div>'}
                 </div>
               </div>
-              <div class="ov-two-col">
-                <div>
-                  <div class="ov-section-label">
-                    <span>Database Behavior</span>
-                    <span class="ov-kpi-chip">${escapeHtml(data.sql_total_count || 0)} queries</span>
+            </div>
+            <div class="perf-section">
+              <div class="perf-section-label">Database & Response</div>
+              <div class="perf-two-col">
+                <div class="perf-group-card">
+                  <div class="perf-group-head">
+                    <div class="perf-group-title">Database Behavior</div>
                   </div>
-                  <div class="ov-stat-grid">
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">SQL Time</div>
-                      <div class="ov-stat-value">${escapeHtml(perfSqlMs.toFixed(2))} ms</div>
-                      <div class="ov-stat-note">Combined database execution time.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Slow Queries</div>
-                      <div class="ov-stat-value">${escapeHtml(data.sql_slow_count || 0)}</div>
-                      <div class="ov-stat-note">Queries above the Insight slow threshold.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Duplicate Groups</div>
-                      <div class="ov-stat-value">${escapeHtml(data.sql_duplicate_group_count || 0)}</div>
-                      <div class="ov-stat-note">Repeated SQL fingerprints in this request.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">N+1 Hints</div>
-                      <div class="ov-stat-value">${escapeHtml(data.sql_n_plus_one_count || 0)}</div>
-                      <div class="ov-stat-note">Potential repeated select patterns with varying bindings.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Slow Threshold</div>
-                      <div class="ov-stat-value">${escapeHtml(data.sql_slow_threshold_ms || 0)} ms</div>
-                      <div class="ov-stat-note">Current threshold used to mark slow queries.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Result Pressure</div>
-                      <div class="ov-stat-value">${escapeHtml(data.sql_duplicate_total_count || 0)}</div>
-                      <div class="ov-stat-note">Total repeated statements across duplicate groups.</div>
-                    </div>
-                  </div>
+                  ${buildPerfMetricGrid([
+                    { label: 'SQL Time', value: `${escapeHtml(perfSqlMs.toFixed(2))} ms` },
+                    { label: 'Slow Queries', value: escapeHtml(data.sql_slow_count || 0) },
+                    { label: 'Duplicate Groups', value: escapeHtml(data.sql_duplicate_group_count || 0) },
+                    { label: 'N+1 Hints', value: escapeHtml(data.sql_n_plus_one_count || 0) },
+                    { label: 'Slow Threshold', value: `${escapeHtml(data.sql_slow_threshold_ms || 0)} ms` },
+                    { label: 'Result Pressure', value: escapeHtml(data.sql_duplicate_total_count || 0) },
+                  ])}
                 </div>
-                <div>
-                  <div class="ov-section-label">
-                    <span>Response + Cache</span>
-                    <span class="ov-kpi-chip">${escapeHtml(data.response_content_type || data.content_type || 'unknown')}</span>
+                <div class="perf-group-card">
+                  <div class="perf-group-head">
+                    <div class="perf-group-title">Response + Cache</div>
                   </div>
-                  <div class="ov-stat-grid">
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Cache Hit Rate</div>
-                      <div class="ov-stat-value">${perfCacheHitRate}%</div>
-                      <div class="ov-stat-note">${escapeHtml(data.cache_hits || 0)} hits / ${escapeHtml(data.cache_misses || 0)} misses in current request.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Cache Ops</div>
-                      <div class="ov-stat-value">${escapeHtml(data.cache_total || 0)}</div>
-                      <div class="ov-stat-note">${escapeHtml(data.cache_lock_operations || 0)} lock event${Number(data.cache_lock_operations || 0) === 1 ? '' : 's'} included.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Outbound Calls</div>
-                      <div class="ov-stat-value">${escapeHtml(data.http_requests_count || 0)}</div>
-                      <div class="ov-stat-note">${escapeHtml(perfOutboundMs.toFixed(2))} ms spent on external IO.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Logs</div>
-                      <div class="ov-stat-value">${escapeHtml(data.logs_total_count || 0)}</div>
-                      <div class="ov-stat-note">Runtime log entries emitted during this request.</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Redirects</div>
-                      <div class="ov-stat-value">${escapeHtml(data.redirect_count || 0)}</div>
-                      <div class="ov-stat-note">${data.redirect_count ? 'Redirect chain was captured for this request.' : 'No redirect chain captured.'}</div>
-                    </div>
-                    <div class="ov-stat-card">
-                      <div class="ov-stat-label">Response Size</div>
-                      <div class="ov-stat-value">${formatBytes(data.response_body_size || 0)}</div>
-                      <div class="ov-stat-note">Useful for spotting oversized HTML or JSON payloads.</div>
-                    </div>
-                  </div>
+                  ${buildPerfMetricGrid([
+                    { label: 'Cache Hit Rate', value: `${perfCacheHitRate}%` },
+                    { label: 'Cache Ops', value: escapeHtml(data.cache_total || 0) },
+                    { label: 'Outbound Calls', value: escapeHtml(data.http_requests_count || 0) },
+                    { label: 'Logs', value: escapeHtml(data.logs_total_count || 0) },
+                    { label: 'Redirects', value: escapeHtml(data.redirect_count || 0) },
+                    { label: 'Response Size', value: formatBytes(data.response_body_size || 0) },
+                  ])}
                 </div>
               </div>
             </div>
@@ -3187,11 +3567,6 @@ window.DopparProfiler = {
         const responseStatusCode = Number(data.response_status ?? data.status ?? 0);
         const responseStatusText = data.response_status_text || '';
         const responseStatusLabel = responseStatusCode ? (responseStatusText ? `${responseStatusCode} - ${responseStatusText}` : String(responseStatusCode)) : 'Unknown';
-        const responseStatusChipClass = responseStatusCode >= 500
-          ? 'response-status-chip response-status-chip-error'
-          : responseStatusCode >= 300
-            ? 'response-status-chip response-status-chip-warning'
-            : 'response-status-chip response-status-chip-success';
         const responseHeaderCount = Number(data.response_header_count || (hasEntries(data.response_headers) ? Object.keys(data.response_headers).length : 0));
         const responseRedirectChain = Array.isArray(data.redirect_chain) ? data.redirect_chain : [];
         const responseRedirectCount = responseRedirectChain.length + (data.is_redirect ? 1 : 0);
@@ -3203,65 +3578,62 @@ window.DopparProfiler = {
         if (responseHeaderCount > 0) responseInfo['Header Count'] = responseHeaderCount;
 
         const responseHighlightSection = hasEntries(data.response_header_highlights)
-          ? buildSubsection('Header Highlights', buildPropertyTable(data.response_header_highlights, 'Header', 'Value', 'response-highlight-table'))
+          ? buildResponseBlock('Header Highlights', buildPropertyTable(data.response_header_highlights, 'Header', 'Value', 'request-table'))
           : '';
         const responseAllHeadersSection = hasEntries(data.response_headers)
-          ? buildSubsection('All Headers', buildPropertyTable(data.response_headers, 'Header', 'Value', 'response-highlight-table'))
+          ? buildResponseBlock('All Headers', buildPropertyTable(data.response_headers, 'Header', 'Value', 'request-table'))
           : '';
 
         const responseRedirectSummary = (data.is_redirect && data.redirect_url) || responseRedirectCount > 0
-          ? buildSubsection('Redirect Summary', buildPropertyTable({
+          ? buildResponseBlock('Redirect Summary', buildPropertyTable({
               Redirected: data.is_redirect ? 'Yes' : 'No',
               'Redirect Count': responseRedirectCount,
               ...(data.redirect_url ? { Location: data.redirect_url } : {}),
-            }, 'Property', 'Value'))
+            }, 'Property', 'Value', 'request-table'))
           : '';
 
         const responsePreviewSection = data.response_preview
-          ? `
-            <div class="subsection">
-              <div class="subsection-title">Body Preview</div>
-              <div class="api-response-shell">
-                <div class="api-response-head">
-                  <span class="api-response-title">${escapeHtml(data.response_preview_format || 'text')} preview</span>
-                  <span class="api-meta">
-                    ${data.response_classification ? `<span class="api-meta-chip api-chip-teal">${escapeHtml(data.response_classification)}</span>` : ''}
-                    ${data.response_preview_truncated ? `<span class="api-meta-chip api-chip-mono">Truncated</span>` : ''}
-                  </span>
-                </div>
-                <div class="response-preview-scroll">${buildCodeBlock(data.response_preview)}</div>
+          ? buildResponseBlock('Body Preview', `
+              <div class="response-preview-head">
+                <span class="api-meta">
+                  <span class="api-meta-chip api-chip-mono">${escapeHtml(data.response_preview_format || 'text')} preview</span>
+                  ${data.response_classification ? `<span class="api-meta-chip api-chip-teal">${escapeHtml(data.response_classification)}</span>` : ''}
+                  ${data.response_preview_truncated ? `<span class="api-meta-chip api-chip-mono">Truncated</span>` : ''}
+                </span>
               </div>
-            </div>
-          `
-          : buildSubsection('Body Preview', `<div class="no-data">${data.response_classification === 'File Download' || data.response_classification === 'File Response' ? 'Preview skipped for file or binary response' : 'No response body preview captured'}</div>`);
+              <div class="response-preview-scroll">${buildCodeBlock(data.response_preview)}</div>
+            `)
+          : buildResponseBlock('Body Preview', `<div class="no-data">${data.response_classification === 'File Download' || data.response_classification === 'File Response' ? 'Preview skipped for file or binary response' : 'No response body preview captured'}</div>`);
 
         const responseSection = `
-          <div class="section">
-            <div class="section-title"><span class="section-title-main">Response Details</span></div>
-            <div class="section-stack">
-              <div class="summary-grid">
-                <div class="summary-card">
-                  <div class="summary-label">Status</div>
-                  <div class="summary-value"><span class="${responseStatusChipClass}">${escapeHtml(responseStatusLabel)}</span></div>
-                  <div class="summary-note">Resolved from the final response code.</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-label">Classification</div>
-                  <div class="summary-value">${escapeHtml(data.response_classification || 'HTTP Response')}</div>
-                  <div class="summary-note">Quick response type classification for fast triage.</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-label">Body Size</div>
-                  <div class="summary-value">${formatBytes(data.response_body_size || 0)}</div>
-                  <div class="summary-note">Captured response body size before toolbar injection.</div>
-                </div>
-                <div class="summary-card">
-                  <div class="summary-label">Headers</div>
-                  <div class="summary-value">${escapeHtml(responseHeaderCount || 0)}</div>
-                  <div class="summary-note">${escapeHtml(responseRedirectCount)} redirect hop${responseRedirectCount === 1 ? '' : 's'} observed for this request.</div>
-                </div>
+          <div class="response-shell">
+            <div class="section-title">
+              <span class="section-title-main">Response Details</span>
+              <span>
+                <span class="badge ${responseStatusCode >= 500 ? 'badge-error' : responseStatusCode >= 300 ? 'badge-warning' : 'badge-success'}">${escapeHtml(responseStatusLabel)}</span>
+                <span class="badge badge-info">${escapeHtml(responseHeaderCount || 0)} headers</span>
+              </span>
+            </div>
+            <div class="cache-kpis">
+              <div class="cache-kpi">
+                <div class="cache-kpi-label">Classification</div>
+                <div class="cache-kpi-value">${escapeHtml(data.response_classification || 'HTTP Response')}</div>
               </div>
-              ${buildSubsection('Response', buildPropertyTable(responseInfo, 'Property', 'Value'))}
+              <div class="cache-kpi">
+                <div class="cache-kpi-label">Body Size</div>
+                <div class="cache-kpi-value">${formatBytes(data.response_body_size || 0)}</div>
+              </div>
+              <div class="cache-kpi">
+                <div class="cache-kpi-label">Headers</div>
+                <div class="cache-kpi-value">${escapeHtml(responseHeaderCount || 0)}</div>
+              </div>
+              <div class="cache-kpi">
+                <div class="cache-kpi-label">Redirects</div>
+                <div class="cache-kpi-value">${escapeHtml(responseRedirectCount)}</div>
+              </div>
+            </div>
+            <div class="response-stack">
+              ${buildResponseBlock('Response', buildPropertyTable(responseInfo, 'Property', 'Value', 'request-table'))}
               ${responseHighlightSection}
               ${responseAllHeadersSection}
               ${responseRedirectSummary}
@@ -3332,7 +3704,7 @@ window.DopparProfiler = {
 
             return `
               <details class="cache-value-details">
-                <summary class="cache-value-summary">${escapeHtml(preview)}</summary>
+                <summary class="cache-value-summary"><span class="cache-value-summary-text">${escapeHtml(preview)}</span></summary>
                 <div class="cache-value-body">${body}</div>
               </details>
             `;
@@ -3344,52 +3716,69 @@ window.DopparProfiler = {
           return '<span class="muted-value">No payload</span>';
         };
         const cacheSection = `
-          <div class="section">
-            <div class="section-title"><span class="section-title-main">Cache Activity</span></div>
+          <div class="cache-shell">
+            <div class="section-title">
+              <span class="section-title-main">Cache Activity</span>
+              ${cacheOperations.length ? `
+                <span>
+                  <span class="badge badge-info">${escapeHtml(cacheOperations.length)} events</span>
+                  <span class="badge badge-success">${cacheHitRate}% hit rate</span>
+                </span>
+              ` : ''}
+            </div>
             ${cacheOperations.length ? `
-              <div class="summary-grid">
-                <div class="summary-card"><div class="summary-label">Operations</div><div class="summary-value">${escapeHtml(data.cache_total || cacheOperations.length)}</div><div class="summary-note">Total captured cache events.</div></div>
-                <div class="summary-card"><div class="summary-label">Hit Rate</div><div class="summary-value">${cacheHitRate}%</div><div class="summary-note">${escapeHtml(data.cache_hits || 0)} hits / ${escapeHtml(data.cache_misses || 0)} misses</div></div>
-                <div class="summary-card"><div class="summary-label">Writes</div><div class="summary-value">${escapeHtml(data.cache_writes || 0)}</div><div class="summary-note">Set and forever style writes.</div></div>
-                <div class="summary-card"><div class="summary-label">Deletes</div><div class="summary-value">${escapeHtml(data.cache_deletes || 0)}</div><div class="summary-note">Forget and delete operations.</div></div>
-                <div class="summary-card"><div class="summary-label">Locks</div><div class="summary-value">${escapeHtml(data.cache_lock_operations || 0)}</div><div class="summary-note">Atomic lock lifecycle events.</div></div>
+              <div class="cache-kpis">
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Operations</div>
+                  <div class="cache-kpi-value">${escapeHtml(data.cache_total || cacheOperations.length)}</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Hit Rate</div>
+                  <div class="cache-kpi-value">${cacheHitRate}%</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Writes</div>
+                  <div class="cache-kpi-value">${escapeHtml(data.cache_writes || 0)}</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Deletes</div>
+                  <div class="cache-kpi-value">${escapeHtml(data.cache_deletes || 0)}</div>
+                </div>
+                <div class="cache-kpi">
+                  <div class="cache-kpi-label">Locks</div>
+                  <div class="cache-kpi-value">${escapeHtml(data.cache_lock_operations || 0)}</div>
+                </div>
               </div>
-              <div class="cache-table-shell">
-                <div class="cache-table-head">
-                  <span class="cache-table-count">${escapeHtml(cacheOperations.length)} cache events</span>
-                  <span class="cache-table-note">Current request cache reads, writes, TTLs, misses, and lock activity.</span>
-                </div>
-                <div class="cache-table-scroll">
-                  <table class="cache-detail-table">
-                    <thead>
+              <div class="cache-table-scroll">
+                <table class="cache-detail-table">
+                  <thead>
+                    <tr>
+                      <th class="cache-col-type">Type</th>
+                      <th class="cache-col-key">Key</th>
+                      <th class="cache-col-value">Value</th>
+                      <th class="cache-col-store">Store</th>
+                      <th class="cache-col-status">Status</th>
+                      <th class="cache-col-meta">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${cacheOperations.map((operation) => `
                       <tr>
-                        <th class="cache-col-type">Type</th>
-                        <th class="cache-col-key">Key</th>
-                        <th class="cache-col-value">Value</th>
-                        <th class="cache-col-store">Store</th>
-                        <th class="cache-col-status">Status</th>
-                        <th class="cache-col-meta">Details</th>
+                        <td class="cache-col-type"><span class="cache-type-chip">${escapeHtml(operation.type || 'unknown')}</span></td>
+                        <td class="cache-col-key"><span class="cache-key-cell">${escapeHtml(operation.key || 'N/A')}</span></td>
+                        <td class="cache-col-value">${buildCacheValueCell(operation)}</td>
+                        <td class="cache-col-store">
+                          <div class="cache-store-cell">
+                            <span class="cache-store-name">${escapeHtml(operation.store_name || 'default')}</span>
+                            <span class="cache-store-driver">${escapeHtml(String(operation.store_driver || 'unknown').toUpperCase())}</span>
+                          </div>
+                        </td>
+                        <td class="cache-col-status">${buildCacheStatusBadge(operation)}</td>
+                        <td class="cache-col-meta">${buildCacheMetaLines(operation)}</td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      ${cacheOperations.map((operation) => `
-                        <tr>
-                          <td class="cache-col-type"><span class="cache-type-chip">${escapeHtml(operation.type || 'unknown')}</span></td>
-                          <td class="cache-col-key"><span class="cache-key-cell">${escapeHtml(operation.key || 'N/A')}</span></td>
-                          <td class="cache-col-value">${buildCacheValueCell(operation)}</td>
-                          <td class="cache-col-store">
-                            <div class="cache-store-cell">
-                              <span class="cache-store-name">${escapeHtml(operation.store_name || 'default')}</span>
-                              <span class="cache-store-driver">${escapeHtml(String(operation.store_driver || 'unknown').toUpperCase())}</span>
-                            </div>
-                          </td>
-                          <td class="cache-col-status">${buildCacheStatusBadge(operation)}</td>
-                          <td class="cache-col-meta">${buildCacheMetaLines(operation)}</td>
-                        </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
+                    `).join('')}
+                  </tbody>
+                </table>
               </div>
             ` : '<div class="no-data">No cache operations detected</div>'}
           </div>
@@ -3404,8 +3793,11 @@ window.DopparProfiler = {
 
         const logsList = Array.isArray(data.logs) ? data.logs : [];
         const logsSection = `
-          <div class="section">
-            <div class="section-title"><span class="section-title-main">Runtime Logs</span></div>
+          <div class="logs-shell">
+            <div class="section-title">
+              <span class="section-title-main">Runtime Logs</span>
+              ${logsList.length ? `<span class="badge badge-info">${escapeHtml(logsList.length)} entries</span>` : ''}
+            </div>
             ${logsList.length ? `
               <div class="log-list">
                 ${logsList.map((log) => `
@@ -3426,7 +3818,7 @@ window.DopparProfiler = {
         const outgoingRequests = Array.isArray(data.http_requests) ? data.http_requests : [];
         const jsonApiPath = `/_insight/api/${escapeHtml(data.id)}`;
         const jsonApiSection = `
-          <div class="section">
+          <div class="json-api-shell">
             <div class="section-title">
               <span class="section-title-main">JSON API</span>
               <a class="api-open-btn" href="${jsonApiPath}" target="_blank" rel="noreferrer">
@@ -3434,30 +3826,27 @@ window.DopparProfiler = {
                 Open in Browser
               </a>
             </div>
-            <p class="section-copy">Access the raw profiler payload for this request via the REST endpoint below.</p>
-            <div class="api-shell">
-              <div class="api-operation">
-                <div class="api-eyebrow">Profiler Endpoint</div>
-                <div class="api-line">
-                  <span class="api-method">GET</span>
-                  <span class="api-path">${jsonApiPath}</span>
-                </div>
-                <div class="api-meta">
-                  <span class="api-meta-chip api-chip-success">● 200 OK</span>
-                  <span class="api-meta-chip api-chip-teal">application/json</span>
-                  <span class="api-meta-chip api-chip-mono">${escapeHtml(data.id.slice(0, 12))}…</span>
-                </div>
+            <div class="api-group-card">
+              <div class="perf-group-title">Profiler Endpoint</div>
+              <div class="api-line">
+                <span class="api-method">GET</span>
+                <span class="api-path">${jsonApiPath}</span>
               </div>
-              <div class="api-response-shell">
-                <div class="api-response-head">
-                  <span class="api-response-title">Response Payload</span>
-                  <button class="copy-action" type="button" data-action="json-api-copy">
-                    <span class="copy-icon" aria-hidden="true"></span>
-                    Copy JSON
-                  </button>
-                </div>
-                <div class="response-preview-scroll">${buildCodeBlock(data)}</div>
+              <div class="api-meta">
+                <span class="api-meta-chip api-chip-success">● 200 OK</span>
+                <span class="api-meta-chip api-chip-teal">application/json</span>
+                <span class="api-meta-chip api-chip-mono">${escapeHtml(data.id.slice(0, 12))}…</span>
               </div>
+            </div>
+            <div class="api-group-card api-payload-card">
+              <div class="api-payload-head">
+                <span class="perf-group-title">Response Payload</span>
+                <button class="copy-action" type="button" data-action="json-api-copy">
+                  <span class="copy-icon" aria-hidden="true"></span>
+                  Copy JSON
+                </button>
+              </div>
+              <div class="response-preview-scroll">${buildCodeBlock(data)}</div>
             </div>
           </div>
         `;
@@ -3498,28 +3887,29 @@ window.DopparProfiler = {
             <aside class="sidebar">
               <div class="sidebar-brand">
                 <span class="sidebar-mark">${sidebarLogo}</span>
-                <div>
-                  <div class="sidebar-title">Insight</div>
-                </div>
               </div>
               <nav class="sidebar-nav">
-                <div class="nav-section-label">Cross-Request Views</div>
-                <div class="nav-section-copy">Overview and History combine this request with recent captured traffic.</div>
-                <button class="nav-button active" type="button" data-view="overview"><span class="nav-main"><span class="nav-icon nav-icon-overview"></span><span class="nav-label">Overview</span></span></button>
-                <button class="nav-button" type="button" data-view="history"><span class="nav-main"><span class="nav-icon nav-icon-history"></span><span class="nav-label">History</span></span></button>
-                <div class="nav-section-divider" aria-hidden="true"></div>
-                <div class="nav-section-label">Current Request</div>
-                <div class="nav-section-copy">Everything below is captured from the request currently open in this panel.</div>
-                <button class="nav-button" type="button" data-view="http"><span class="nav-main"><span class="nav-icon nav-icon-http"></span><span class="nav-label">HTTP</span></span></button>
-                <button class="nav-button" type="button" data-view="database"><span class="nav-main"><span class="nav-icon nav-icon-database"></span><span class="nav-label">Database</span></span></button>
-                <button class="nav-button" type="button" data-view="cache"><span class="nav-main"><span class="nav-icon nav-icon-cache"></span><span class="nav-label">Cache</span></span></button>
-                <button class="nav-button" type="button" data-view="auth"><span class="nav-main"><span class="nav-icon nav-icon-auth"></span><span class="nav-label">Auth</span></span></button>
-                <button class="nav-button" type="button" data-view="request"><span class="nav-main"><span class="nav-icon nav-icon-request"></span><span class="nav-label">Request</span></span></button>
-                <button class="nav-button" type="button" data-view="response"><span class="nav-main"><span class="nav-icon nav-icon-response"></span><span class="nav-label">Response</span></span></button>
-                <button class="nav-button" type="button" data-view="performance"><span class="nav-main"><span class="nav-icon nav-icon-performance"></span><span class="nav-label">Performance</span></span></button>
-                <button class="nav-button" type="button" data-view="session"><span class="nav-main"><span class="nav-icon nav-icon-session"></span><span class="nav-label">Session</span></span></button>
-                <button class="nav-button" type="button" data-view="logs"><span class="nav-main"><span class="nav-icon nav-icon-logs"></span><span class="nav-label">Logs</span></span></button>
-                <button class="nav-button" type="button" data-view="json-api"><span class="nav-main"><span class="nav-icon nav-icon-json"></span><span class="nav-label">JSON API</span></span></button>
+                <div class="nav-group">
+                  <div class="nav-rail">
+                    <button class="nav-rail-button active" type="button" data-view="overview" data-nav-label="Overview" aria-label="Overview"><span class="nav-icon nav-icon-overview"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="history" data-nav-label="History" aria-label="History"><span class="nav-icon nav-icon-history"></span></button>
+                  </div>
+                </div>
+                <div class="nav-group-divider" aria-hidden="true"></div>
+                <div class="nav-group">
+                  <div class="nav-rail">
+                    <button class="nav-rail-button" type="button" data-view="http" data-nav-label="HTTP" aria-label="HTTP"><span class="nav-icon nav-icon-http"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="database" data-nav-label="Database" aria-label="Database"><span class="nav-icon nav-icon-database"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="cache" data-nav-label="Cache" aria-label="Cache"><span class="nav-icon nav-icon-cache"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="auth" data-nav-label="Auth" aria-label="Auth"><span class="nav-icon nav-icon-auth"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="request" data-nav-label="Request" aria-label="Request"><span class="nav-icon nav-icon-request"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="response" data-nav-label="Response" aria-label="Response"><span class="nav-icon nav-icon-response"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="performance" data-nav-label="Performance" aria-label="Performance"><span class="nav-icon nav-icon-performance"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="session" data-nav-label="Session" aria-label="Session"><span class="nav-icon nav-icon-session"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="logs" data-nav-label="Logs" aria-label="Logs"><span class="nav-icon nav-icon-logs"></span></button>
+                    <button class="nav-rail-button" type="button" data-view="json-api" data-nav-label="JSON API" aria-label="JSON API"><span class="nav-icon nav-icon-json"></span></button>
+                  </div>
+                </div>
               </nav>
             </aside>
             <main class="canvas">
@@ -3566,17 +3956,43 @@ window.DopparProfiler = {
         `;
         root.appendChild(style);
         root.appendChild(wrap);
+        const navTooltip = document.createElement('div');
+        navTooltip.className = 'nav-rail-tooltip';
+        navTooltip.setAttribute('role', 'tooltip');
+        root.appendChild(navTooltip);
+        const hideNavTooltip = () => navTooltip.classList.remove('is-visible');
+        const positionNavTooltip = (button) => {
+          const label = button.getAttribute('data-nav-label');
+          if(!label){
+            return;
+          }
+          const rect = button.getBoundingClientRect();
+          navTooltip.textContent = label;
+          navTooltip.style.left = `${rect.right + 8}px`;
+          navTooltip.style.top = `${rect.top + (rect.height / 2)}px`;
+          navTooltip.style.transform = 'translateY(-50%)';
+          navTooltip.classList.add('is-visible');
+        };
         const navButtons = wrap.querySelectorAll('[data-view]');
         const viewSections = wrap.querySelectorAll('[data-view-section]');
-        navButtons.forEach((button) => {
-          button.addEventListener('click', () => {
-            const target = button.getAttribute('data-view');
-            navButtons.forEach((item) => item.classList.toggle('active', item === button));
-            viewSections.forEach((section) => {
-              section.classList.toggle('active', section.getAttribute('data-view-section') === target);
-            });
+        const setActiveView = (target) => {
+          navButtons.forEach((item) => {
+            item.classList.toggle('active', item.getAttribute('data-view') === target);
           });
+          viewSections.forEach((section) => {
+            section.classList.toggle('active', section.getAttribute('data-view-section') === target);
+          });
+        };
+        navButtons.forEach((button) => {
+          button.addEventListener('click', () => setActiveView(button.getAttribute('data-view')));
         });
+        wrap.querySelectorAll('.nav-rail-button[data-nav-label]').forEach((button) => {
+          button.addEventListener('mouseenter', () => positionNavTooltip(button));
+          button.addEventListener('mouseleave', hideNavTooltip);
+          button.addEventListener('focus', () => positionNavTooltip(button));
+          button.addEventListener('blur', hideNavTooltip);
+        });
+        wrap.querySelector('.sidebar-nav')?.addEventListener('scroll', hideNavTooltip);
         const overviewShell = wrap.querySelector('[data-overview-shell]');
         const historyShell = wrap.querySelector('[data-history-shell]');
         const historyRanges = wrap.querySelector('[data-history-ranges]');
@@ -4203,118 +4619,122 @@ window.DopparProfiler = {
               .sort((a, b) => b.maxDuration - a.maxDuration);
             overviewShell.innerHTML = `
               <div class="ov-dashboard">
-                <div class="ov-section-label">Activity <span>24h</span></div>
-                <div class="ov-two-col">
-                  <div class="history-card">
-                    <div class="history-card-header">
-                      <div class="history-card-title">Requests</div>
-                      <div class="history-card-meta">
-                        <span class="badge badge-success">${escapeHtml(formatCompactNumber(status123xx))} 1/2/3XX</span>
-                        <span class="badge badge-warning">${escapeHtml(formatCompactNumber(status4xx))} 4XX</span>
-                        <span class="badge badge-error">${escapeHtml(formatCompactNumber(status5xx))} 5XX</span>
+                <section class="ov-group">
+                  <div class="ov-group-label">Activity <span>24h</span></div>
+                  <div class="ov-two-col">
+                    <div class="history-card">
+                      <div class="history-card-header">
+                        <div class="history-card-title">Requests</div>
+                        <div class="history-card-meta">
+                          <span class="badge badge-success">${escapeHtml(formatCompactNumber(status123xx))} 1/2/3XX</span>
+                          <span class="badge badge-warning">${escapeHtml(formatCompactNumber(status4xx))} 4XX</span>
+                          <span class="badge badge-error">${escapeHtml(formatCompactNumber(status5xx))} 5XX</span>
+                        </div>
                       </div>
-                    </div>
-                    <div class="history-card-value">${escapeHtml(formatCompactNumber(totalRequests))}</div>
-                    <div class="history-chart-wrap">
-                      ${buildBarChart(buckets)}
-                      <div class="history-chart-axis"><span>${escapeHtml(axisStart)}</span><span>${escapeHtml(axisEnd)}</span></div>
-                    </div>
-                  </div>
-                  <div class="history-card">
-                    <div class="history-card-header">
-                      <div class="history-card-title">Duration</div>
-                      <div class="history-card-meta">
-                        <span class="ov-kpi-chip">AVG ${escapeHtml(formatDuration(avgDuration))}</span>
-                        <span class="ov-kpi-chip ov-kpi-warn">P95 ${escapeHtml(formatDuration(p95))}</span>
-                      </div>
-                    </div>
-                    <div class="history-card-value">${escapeHtml(durationRange)}</div>
-                    <div class="history-chart-wrap">
-                      ${buildLineChart(buckets)}
-                      <div class="history-chart-axis"><span>${escapeHtml(axisStart)}</span><span>${escapeHtml(axisEnd)}</span></div>
-                    </div>
-                  </div>
-                </div>
-                <div class="ov-section-label">Application</div>
-                <div class="ov-app-stack">
-                  <div class="history-card">
-                    <div class="history-card-header">
-                      <div class="history-card-title">Exceptions</div>
-                      <div class="history-card-meta">
-                        <span class="badge badge-warning">${escapeHtml(formatCompactNumber(status4xx))} 4XX</span>
-                        <span class="badge badge-error">${escapeHtml(formatCompactNumber(status5xx))} 5XX</span>
-                      </div>
-                    </div>
-                    ${errorCount > 0 ? `
-                      <div class="ov-app-headline">${escapeHtml(formatCompactNumber(errorCount))} exception${errorCount !== 1 ? 's' : ''} in 24h</div>
-                      <div class="ov-app-sub">Errors across ${escapeHtml(String(errorRoutes.size))} unique route${errorRoutes.size !== 1 ? 's' : ''}</div>
-                      <div class="ov-chart-wrap">
-                        ${buildExceptionChart(buckets)}
+                      <div class="history-card-value">${escapeHtml(formatCompactNumber(totalRequests))}</div>
+                      <div class="history-chart-wrap">
+                        ${buildBarChart(buckets)}
                         <div class="history-chart-axis"><span>${escapeHtml(axisStart)}</span><span>${escapeHtml(axisEnd)}</span></div>
                       </div>
-                      <div class="ov-stat-grid">
-                        <div class="ov-stat-card">
-                          <div class="ov-stat-label">Error Routes</div>
-                          <div class="ov-stat-value">${escapeHtml(String(errorRoutes.size))}</div>
-                          <div class="ov-stat-note">Unique endpoints returning 4XX or 5XX.</div>
-                        </div>
-                        <div class="ov-stat-card">
-                          <div class="ov-stat-label">Exception Types</div>
-                          <div class="ov-stat-value">${escapeHtml(String(errorTypes.size))}</div>
-                          <div class="ov-stat-note">Distinct exception families seen in 24h.</div>
-                        </div>
-                        <div class="ov-stat-card">
-                          <div class="ov-stat-label">Latest Error</div>
-                          <div class="ov-stat-value">${escapeHtml(latestErrorTime)}</div>
-                          <div class="ov-stat-note">${escapeHtml(hottestErrorRoute)}</div>
+                    </div>
+                    <div class="history-card">
+                      <div class="history-card-header">
+                        <div class="history-card-title">Duration</div>
+                        <div class="history-card-meta">
+                          <span class="ov-kpi-chip">AVG ${escapeHtml(formatDuration(avgDuration))}</span>
+                          <span class="ov-kpi-chip ov-kpi-warn">P95 ${escapeHtml(formatDuration(p95))}</span>
                         </div>
                       </div>
-                      <div class="ov-chip-row">
-                        ${topErrorRoutes.map((route) => `
-                          <span class="ov-chip">
-                            ${renderMethodLabel(route.method)}
-                            <span class="ov-chip-value" title="${escapeHtml(route.route)}">${escapeHtml(route.route)} • ${escapeHtml(formatCompactNumber(route.status4xx + route.status5xx))}</span>
-                          </span>
-                        `).join('')}
+                      <div class="history-card-value">${escapeHtml(durationRange)}</div>
+                      <div class="history-chart-wrap">
+                        ${buildLineChart(buckets)}
+                        <div class="history-chart-axis"><span>${escapeHtml(axisStart)}</span><span>${escapeHtml(axisEnd)}</span></div>
                       </div>
-                    ` : '<div class="ov-empty">No exceptions recorded in 24h.</div>'}
+                    </div>
                   </div>
-                  <div class="history-card">
-                    <div class="history-card-title">Slow Routes</div>
-                    ${slowRoutes.length > 0 ? `
-                      <div class="ov-app-headline">${slowRoutes.length} route${slowRoutes.length !== 1 ? 's' : ''} slower than 1s</div>
-                      <div class="ov-app-sub">Sorted by worst observed response time. The table stays capped and scrollable when many slow routes are captured.</div>
-                      <div class="ov-slow-table-scroll">
-                        <table class="ov-slow-table">
-                          <thead>
-                            <tr>
-                              <th class="ov-slow-col-route">Route</th>
-                              <th class="ov-slow-col-requests">Hits</th>
-                              <th class="ov-slow-col-min">Min</th>
-                              <th class="ov-slow-col-avg">Avg</th>
-                              <th class="ov-slow-col-peak">Peak</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            ${slowRoutes.map((route) => `
+                </section>
+                <section class="ov-group">
+                  <div class="ov-group-label">Application</div>
+                  <div class="ov-app-stack">
+                    <div class="history-card">
+                      <div class="history-card-header">
+                        <div class="history-card-title">Exceptions</div>
+                        <div class="history-card-meta">
+                          <span class="badge badge-warning">${escapeHtml(formatCompactNumber(status4xx))} 4XX</span>
+                          <span class="badge badge-error">${escapeHtml(formatCompactNumber(status5xx))} 5XX</span>
+                        </div>
+                      </div>
+                      ${errorCount > 0 ? `
+                        <div class="ov-app-headline">${escapeHtml(formatCompactNumber(errorCount))} exception${errorCount !== 1 ? 's' : ''} in 24h</div>
+                        <div class="ov-app-sub">Errors across ${escapeHtml(String(errorRoutes.size))} unique route${errorRoutes.size !== 1 ? 's' : ''}</div>
+                        <div class="ov-chart-wrap">
+                          ${buildExceptionChart(buckets)}
+                          <div class="history-chart-axis"><span>${escapeHtml(axisStart)}</span><span>${escapeHtml(axisEnd)}</span></div>
+                        </div>
+                        <div class="ov-stat-grid">
+                          <div class="ov-stat-card">
+                            <div class="ov-stat-label">Error Routes</div>
+                            <div class="ov-stat-value">${escapeHtml(String(errorRoutes.size))}</div>
+                            <div class="ov-stat-note">Unique endpoints returning 4XX or 5XX.</div>
+                          </div>
+                          <div class="ov-stat-card">
+                            <div class="ov-stat-label">Exception Types</div>
+                            <div class="ov-stat-value">${escapeHtml(String(errorTypes.size))}</div>
+                            <div class="ov-stat-note">Distinct exception families seen in 24h.</div>
+                          </div>
+                          <div class="ov-stat-card">
+                            <div class="ov-stat-label">Latest Error</div>
+                            <div class="ov-stat-value">${escapeHtml(latestErrorTime)}</div>
+                            <div class="ov-stat-note">${escapeHtml(hottestErrorRoute)}</div>
+                          </div>
+                        </div>
+                        <div class="ov-chip-row">
+                          ${topErrorRoutes.map((route) => `
+                            <span class="ov-chip">
+                              ${renderMethodLabel(route.method)}
+                              <span class="ov-chip-value" title="${escapeHtml(route.route)}">${escapeHtml(route.route)} • ${escapeHtml(formatCompactNumber(route.status4xx + route.status5xx))}</span>
+                            </span>
+                          `).join('')}
+                        </div>
+                      ` : '<div class="ov-empty">No exceptions recorded in 24h.</div>'}
+                    </div>
+                    <div class="history-card">
+                      <div class="history-card-title">Slow Routes</div>
+                      ${slowRoutes.length > 0 ? `
+                        <div class="ov-app-headline">${slowRoutes.length} route${slowRoutes.length !== 1 ? 's' : ''} slower than 1s</div>
+                        <div class="ov-app-sub">Sorted by worst observed response time. The table stays capped and scrollable when many slow routes are captured.</div>
+                        <div class="ov-slow-table-scroll">
+                          <table class="ov-slow-table">
+                            <thead>
                               <tr>
-                                <td class="ov-slow-col-route">
-                                  <span class="ov-slow-route-cell">
-                                    ${renderMethodLabel(route.method)}${renderPathLabel(route.route)}
-                                  </span>
-                                </td>
-                                <td class="ov-slow-col-requests"><span class="history-cell-number">${escapeHtml(formatCompactNumber(route.requests))}</span></td>
-                                <td class="ov-slow-col-min"><span class="history-cell-number">${escapeHtml(formatDuration(route.minDuration))}</span></td>
-                                <td class="ov-slow-col-avg">${escapeHtml(formatDuration(route.avgDuration))}</td>
-                                <td class="ov-slow-col-peak"><span class="ov-p95-chip">MAX ${escapeHtml(formatDuration(route.maxDuration))}</span></td>
+                                <th class="ov-slow-col-route">Route</th>
+                                <th class="ov-slow-col-requests">Hits</th>
+                                <th class="ov-slow-col-min">Min</th>
+                                <th class="ov-slow-col-avg">Avg</th>
+                                <th class="ov-slow-col-peak">Peak</th>
                               </tr>
-                            `).join('')}
-                          </tbody>
-                        </table>
-                      </div>
-                    ` : '<div class="ov-empty">No slow routes detected in 24h.</div>'}
+                            </thead>
+                            <tbody>
+                              ${slowRoutes.map((route) => `
+                                <tr>
+                                  <td class="ov-slow-col-route">
+                                    <span class="ov-slow-route-cell">
+                                      ${renderMethodLabel(route.method)}${renderPathLabel(route.route)}
+                                    </span>
+                                  </td>
+                                  <td class="ov-slow-col-requests"><span class="history-cell-number">${escapeHtml(formatCompactNumber(route.requests))}</span></td>
+                                  <td class="ov-slow-col-min"><span class="history-cell-number">${escapeHtml(formatDuration(route.minDuration))}</span></td>
+                                  <td class="ov-slow-col-avg">${escapeHtml(formatDuration(route.avgDuration))}</td>
+                                  <td class="ov-slow-col-peak"><span class="ov-p95-chip">MAX ${escapeHtml(formatDuration(route.maxDuration))}</span></td>
+                                </tr>
+                              `).join('')}
+                            </tbody>
+                          </table>
+                        </div>
+                      ` : '<div class="ov-empty">No slow routes detected in 24h.</div>'}
+                    </div>
                   </div>
-                </div>
+                </section>
               </div>
             `;
           };
