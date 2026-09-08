@@ -44,22 +44,21 @@ class ToolbarRenderer
      */
     protected function buildReplacements(array $data): array
     {
+        [$sqlCount, $sqlTime] = $this->formatToolbarSqlSummary($data);
+
         return [
             '{{CSS}}' => $this->inlineCss(),
             '{{JS}}' => $this->inlineJs(),
             '{{LOGO}}' => $this->getLogo(),
             '{{ID}}' => $this->escape($data['id'] ?? ''),
             '{{STATUS}}' => (string)($data['status'] ?? 0),
-            '{{STATUS_CLASS}}' => $this->statusClass($data),
             '{{METHOD}}' => $this->escape($data['method'] ?? ''),
-            '{{METHOD_CLASS}}' => $this->methodClass((string) ($data['method'] ?? '')),
             '{{PATH}}' => $this->escape($data['route'] ?? ''),
             '{{PATH_DISPLAY}}' => $this->escape($this->formatPathDisplay((string) ($data['route'] ?? ''))),
             '{{DURATION}}' => $this->formatDuration($data),
             '{{MEMORY_PEAK}}' => $this->formatMemoryPeak($data),
-            '{{SQL_COUNT}}' => (string)($data['sql_total_count'] ?? 0),
-            '{{SQL_TIME}}' => number_format($data['sql_total_time_ms'] ?? 0, 1),
-            '{{SQL_SUMMARY}}' => $this->formatSqlSummary($data),
+            '{{SQL_COUNT}}' => (string) $sqlCount,
+            '{{SQL_TIME}}' => $sqlTime,
             '{{CACHE_SUMMARY}}' => $this->formatCacheSummary($data),
             '{{LOGS_COUNT}}' => (string)($data['logs_total_count'] ?? 0),
             '{{SESSION_COUNT}}' => (string)count((array)($data['session_data'] ?? [])),
@@ -73,6 +72,32 @@ class ToolbarRenderer
             '{{AUTH_USER_NAME}}' => $this->escape($data['auth_user_name'] ?? 'Guest'),
             '{{AUTH_USER_EMAIL}}' => $this->escape($data['auth_user_email'] ?? ''),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @return array{0: int, 1: string}
+     */
+    protected function formatToolbarSqlSummary(array $data): array
+    {
+        $count = (int) ($data['sql_total_count'] ?? 0);
+        $time = (float) ($data['sql_total_time_ms'] ?? 0);
+
+        foreach ((array) ($data['redirect_chain'] ?? []) as $redirect) {
+            $count += (int) ($redirect['sql_total_count'] ?? count((array) ($redirect['sql'] ?? [])));
+            $redirectTime = $redirect['sql_total_time_ms'] ?? null;
+
+            if ($redirectTime === null) {
+                $redirectTime = array_sum(array_map(
+                    static fn (array $query): float => (float) ($query['duration_ms'] ?? 0),
+                    (array) ($redirect['sql'] ?? [])
+                ));
+            }
+
+            $time += (float) $redirectTime;
+        }
+
+        return [$count, number_format($time, 2)];
     }
 
     /**
@@ -134,17 +159,9 @@ class ToolbarRenderer
      */
     protected function formatCacheSummary(array $data): string
     {
-        return (string) (int) ($data['cache_total'] ?? 0);
-    }
+        $total = (int) ($data['cache_total'] ?? 0);
 
-    /**
-     * Compact SQL summary for toolbar display
-     *
-     * @param array<string, mixed> $data
-     */
-    protected function formatSqlSummary(array $data): string
-    {
-        return (string) (int) ($data['sql_total_count'] ?? 0);
+        return $total . ' cache ' . ($total === 1 ? 'op' : 'ops');
     }
 
     protected function formatPathDisplay(string $path, int $maxLength = 54): string
@@ -163,50 +180,6 @@ class ToolbarRenderer
         $tail = 18;
 
         return mb_substr($path, 0, $head) . '...' . mb_substr($path, -$tail);
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     */
-    protected function statusClass(array $data): string
-    {
-        $status = (int) ($data['status'] ?? 0);
-
-        if ($status >= 500) {
-            return 'dp-status-5xx';
-        }
-
-        if ($status >= 400) {
-            return 'dp-status-4xx';
-        }
-
-        if ($status >= 300) {
-            return 'dp-status-3xx';
-        }
-
-        if ($status >= 200) {
-            return 'dp-status-2xx';
-        }
-
-        if ($status >= 100) {
-            return 'dp-status-1xx';
-        }
-
-        return '';
-    }
-
-    protected function methodClass(string $method): string
-    {
-        return match (strtoupper($method)) {
-            'GET' => 'dp-method-get',
-            'POST' => 'dp-method-post',
-            'PUT' => 'dp-method-put',
-            'PATCH' => 'dp-method-patch',
-            'DELETE' => 'dp-method-delete',
-            'OPTIONS' => 'dp-method-options',
-            'HEAD' => 'dp-method-head',
-            default => '',
-        };
     }
 
     /**
