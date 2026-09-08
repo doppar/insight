@@ -16,25 +16,28 @@ class DatabaseHook implements ProfilerHookInterface
         try {
             // Install PDO statement class hook to capture SQL timings
             $defaultConnection = (string) config('database.default', 'default');
-            $defaultPdo = \Phaseolies\Database\Database::getPdoInstance($defaultConnection);
-            $defaultPdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [
-                \Doppar\Insight\DB\ProfilerPdoStatement::class,
-                [$defaultConnection, (string) $defaultPdo->getAttribute(\PDO::ATTR_DRIVER_NAME)],
-            ]);
+            $connections = config('insight.database_connections', []);
+
+            if (! is_array($connections) || $connections === []) {
+                $connections = [$defaultConnection];
+            }
 
             // Hook all configured database connections
-            $connections = config('database.connections') ?? [];
-            if (is_array($connections)) {
-                foreach (array_keys($connections) as $name) {
-                    try {
-                        $pdo = \Phaseolies\Database\Database::getPdoInstance($name);
-                        $pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [
-                            \Doppar\Insight\DB\ProfilerPdoStatement::class,
-                            [(string) $name, (string) $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME)],
-                        ]);
-                    } catch (\Throwable) {
-                        // Ignore per-connection errors
-                    }
+            foreach ($connections as $name) {
+                if (! is_string($name) || $name === '') {
+                    continue;
+                }
+
+                $name = $name === 'default' ? $defaultConnection : $name;
+
+                try {
+                    $pdo = \Phaseolies\Database\Database::getPdoInstance($name);
+                    $pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [
+                        \Doppar\Insight\DB\ProfilerPdoStatement::class,
+                        [$name, (string) $pdo->getAttribute(\PDO::ATTR_DRIVER_NAME)],
+                    ]);
+                } catch (\Throwable) {
+                    // Ignore per-connection errors
                 }
             }
         } catch (\Throwable) {
