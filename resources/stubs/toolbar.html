@@ -10,22 +10,45 @@
       </button>
 
       <div class="dp-main">
-        <div class="dp-left">
-          <span class="dp-badge">{{STATUS}}</span>
-          <span class="dp-badge dp-badge-warning dp-redirect" style="display:none" title="Redirect response">Redirect</span>
-          <span class="dp-item dp-meta">{{METHOD}}</span>
-          <span class="dp-item dp-route" title="{{PATH}}">{{PATH_DISPLAY}}</span>
-          <span class="dp-item dp-session-chip"><span class="dp-chip-icon dp-chip-icon-session" aria-hidden="true"></span>{{SESSION_COUNT}} session</span>
-          <span class="dp-item dp-logs-chip"><span class="dp-chip-icon dp-chip-icon-logs" aria-hidden="true"></span>{{LOGS_COUNT}} logs</span>
-          <span class="dp-item dp-resp-size"><span class="dp-chip-icon dp-chip-icon-resp-size" aria-hidden="true"></span>{{RESPONSE_SIZE}}</span>
+        <div class="dp-group dp-group-request">
+          <span class="dp-val dp-status {{STATUS_CLASS}}">{{STATUS}}</span>
+          <span class="dp-val dp-redirect" style="display:none" title="Redirect response">Redirect</span>
+          <span class="dp-val dp-method {{METHOD_CLASS}}">{{METHOD}}</span>
+          <span class="dp-val dp-route" title="{{PATH}}">{{PATH_DISPLAY}}</span>
+          <span class="dp-stat dp-stat-duration" title="Duration">
+            <span class="dp-ico dp-ico-performance-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{DURATION}} ms</span>
+          </span>
         </div>
-        <div class="dp-right">
-          <span class="dp-item dp-memory">Peak {{MEMORY_PEAK}}</span>
-          <span class="dp-item">{{DURATION}} ms</span>
-          <span class="dp-item dp-sql">🗄️ {{SQL_COUNT}} queries ({{SQL_TIME}} ms)</span>
-          <span class="dp-item dp-cache"><span class="dp-chip-icon dp-chip-icon-cache" aria-hidden="true"></span>{{CACHE_SUMMARY}}</span>
-          <button class="dp-btn" onclick="window.DopparProfiler && window.DopparProfiler.toggle()"><span class="dp-btn-icon dp-btn-icon-overview" aria-hidden="true"></span>Overview</button>
+        <div class="dp-group dp-group-metrics">
+          <span class="dp-stat dp-stat-session" title="Session">
+            <span class="dp-ico dp-ico-session-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{SESSION_COUNT}}</span>
+          </span>
+          <span class="dp-stat dp-stat-logs" title="Logs">
+            <span class="dp-ico dp-ico-logs-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{LOGS_COUNT}}</span>
+          </span>
+          <span class="dp-stat dp-stat-response" title="Response size">
+            <span class="dp-ico dp-ico-response-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{RESPONSE_SIZE}}</span>
+          </span>
+          <span class="dp-stat dp-stat-memory" title="Peak memory">
+            <span class="dp-ico dp-ico-memory-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{MEMORY_PEAK}}</span>
+          </span>
+          <span class="dp-stat dp-stat-sql" title="Database queries">
+            <span class="dp-ico dp-ico-database-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{SQL_SUMMARY}}<span class="dp-val-time">/{{SQL_TIME}}ms</span></span>
+          </span>
+          <span class="dp-stat dp-stat-cache" title="Cache operations">
+            <span class="dp-ico dp-ico-cache-filled" aria-hidden="true"></span>
+            <span class="dp-val">{{CACHE_SUMMARY}}</span>
+          </span>
         </div>
+        <button class="dp-btn dp-btn-overview" type="button" aria-label="Overview" onclick="window.DopparProfiler && window.DopparProfiler.toggle()">
+          <span class="dp-ico dp-ico-overview-filled" aria-hidden="true"></span>
+        </button>
       </div>
     </div>
   </template>
@@ -37,22 +60,14 @@
       var tpl=host.querySelector('#dp-template');
       if(tpl&&tpl.content){ root.appendChild(tpl.content.cloneNode(true)); }
       host.textContent='';
-      // Show redirect indicator if there's a redirect chain
       var chainData = host.dataset.redirectChain;
       if(chainData && chainData !== '[]'){
         var redirectEl=root.querySelector('.dp-redirect');
-        if(redirectEl){redirectEl.style.display='inline-block';}
+        if(redirectEl){redirectEl.style.display='';}
       }
-      // Also show if current request is a redirect
       if(host.dataset.isRedirect==='true'){
         var redirectEl=root.querySelector('.dp-redirect');
-        if(redirectEl){redirectEl.style.display='inline-block';}
-      }
-      // Show logs count if there are logs
-      var logsCount=parseInt(host.dataset.logsCount||'0',10);
-      if(logsCount>0){
-        var logsEl=root.querySelector('.dp-logs');
-        if(logsEl){logsEl.style.display='inline-block';}
+        if(redirectEl){redirectEl.style.display='';}
       }
       var storageKey='doppar.insight.toolbar.collapsed';
       var rootEl=root.querySelector('.dp-root');
