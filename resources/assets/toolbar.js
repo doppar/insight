@@ -3219,11 +3219,30 @@ window.DopparProfiler = {
         const wrap = document.createElement('div');
         wrap.className = 'panel';
         
+        const host = document.getElementById('doppar-profiler');
+        const chainData = host ? host.dataset.redirectChain : null;
+        let redirectChain = [];
+        try {
+          redirectChain = chainData ? JSON.parse(chainData) : [];
+        } catch (error) {
+          console.error('Failed to parse redirect chain:', error);
+        }
+
+        const currentQueries = data.sql && Array.isArray(data.sql) ? data.sql : [];
+        const redirectedQueries = redirectChain.flatMap((hop) => {
+          const queries = Array.isArray(hop.sql) ? hop.sql : [];
+          const method = hop.method || hop.request_server?.METHOD || 'GET';
+          const route = hop.route || hop.request_server?.PATH || '/';
+
+          return queries.map((query) => ({ query, label: `${method} ${route}` }));
+        });
+
         // Build SQL section
         let sqlSection = '';
-        if(data.sql && Array.isArray(data.sql) && data.sql.length > 0){
-          const totalCount = data.sql_total_count || data.sql.length;
-          const totalTime = data.sql_total_time_ms?.toFixed?.(2) ?? data.sql_total_time_ms ?? 0;
+        if (currentQueries.length > 0 || redirectedQueries.length > 0) {
+          const totalCount = (data.sql_total_count || currentQueries.length) + redirectedQueries.length;
+          const redirectedTime = redirectedQueries.reduce((total, item) => total + Number(item.query.duration_ms || 0), 0);
+          const totalTime = (Number(data.sql_total_time_ms || 0) + redirectedTime).toFixed(2);
           const slowCount = Number(data.sql_slow_count || 0);
           const nPlusOneCount = Number(data.sql_n_plus_one_count || 0);
           const nPlusOneHints = Array.isArray(data.sql_n_plus_one_hints) ? data.sql_n_plus_one_hints : [];
@@ -3251,7 +3270,7 @@ window.DopparProfiler = {
                 </div>
               ` : ''}
               <div class="sql-list">
-                ${data.sql.map((q, idx) => {
+                ${currentQueries.map((q, idx) => {
                   const duration = q.duration_ms?.toFixed?.(2) ?? q.duration_ms ?? 0;
                   const rowCount = q.row_count !== null && q.row_count !== undefined ? q.row_count : '?';
                   const bindings = q.bindings && Object.keys(q.bindings).length > 0 
@@ -3285,6 +3304,36 @@ window.DopparProfiler = {
                   `;
                 }).join('')}
               </div>
+              ${redirectedQueries.length > 0 ? `
+                <div class="subsection-title">Queries from redirected requests</div>
+                <div class="sql-list redirected-sql-list">
+                  ${redirectedQueries.map((item, idx) => {
+                    const query = item.query;
+                    const duration = query.duration_ms?.toFixed?.(2) ?? query.duration_ms ?? 0;
+                    const rowCount = query.row_count !== null && query.row_count !== undefined ? query.row_count : '?';
+                    const bindings = query.bindings && Object.keys(query.bindings).length > 0
+                      ? escapeHtml(JSON.stringify(query.bindings))
+                      : '';
+                    const error = query.error ? `<div class="sql-error">Error: ${escapeHtml(query.error)}</div>` : '';
+
+                    return `
+                      <div class="sql-item">
+                        <div class="sql-header">
+                          <div>
+                            <span class="badge badge-info">#${idx + 1}</span>
+                            <span class="badge badge-warning">${escapeHtml(item.label)}</span>
+                            <span class="sql-time">${duration} ms</span>
+                            <span class="sql-rows">${rowCount} rows</span>
+                          </div>
+                        </div>
+                        <div class="sql-query">${escapeHtml(query.sql || 'N/A')}</div>
+                        ${bindings ? `<div class="sql-bindings">Bindings: ${bindings}</div>` : ''}
+                        ${error}
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              ` : ''}
             </div>
           `;
         } else {
@@ -3298,56 +3347,48 @@ window.DopparProfiler = {
         
         // Build redirect chain section
         let redirectChainSection = '';
-        const host = document.getElementById('doppar-profiler');
-        const chainData = host ? host.dataset.redirectChain : null;
-        if (chainData && chainData !== '[]') {
-          try {
-            const chain = JSON.parse(chainData);
-            if (chain && chain.length > 0) {
-              const chainItems = chain.map((item, idx) => {
-                const itemStatus = item.status || '?';
-                const itemMethod = item.method || 'GET';
-                const itemPath = item.route || item.url || '/';
-                const itemDuration = item.duration_ms ? item.duration_ms.toFixed(1) : '0.0';
-                const itemRedirectUrl = item.redirect_url || '';
-                return `
-                  <div class="redirect-chain-item">
-                    <div class="redirect-chain-header">
-                      <span class="badge badge-info">#${idx + 1}</span>
-                      <span class="redirect-chain-status">${itemStatus}</span>
-                      <span class="redirect-chain-method">${escapeHtml(itemMethod)}</span>
-                      <span class="redirect-chain-path">${escapeHtml(itemPath)}</span>
-                      <span class="redirect-chain-duration">${itemDuration} ms</span>
-                    </div>
-                    ${itemRedirectUrl ? `<div class="redirect-chain-arrow">Redirected to: ${escapeHtml(itemRedirectUrl)}</div>` : ''}
-                  </div>
-                `;
-              }).join('');
-              
-              redirectChainSection = `
-                <div class="section">
-                  <div class="section-title">
-                    <span class="section-title-main">Redirect Chain</span>
-                    <span class="badge badge-warning">${chain.length} redirect${chain.length > 1 ? 's' : ''}</span>
-                  </div>
-                  <div class="redirect-chain-list">
-                    ${chainItems}
-                    <div class="redirect-chain-item redirect-chain-current">
-                      <div class="redirect-chain-header">
-                        <span class="badge badge-success">Current</span>
-                        <span class="redirect-chain-status">${data.status}</span>
-                        <span class="redirect-chain-method">${escapeHtml(data.method)}</span>
-                        <span class="redirect-chain-path">${escapeHtml(data.route)}</span>
-                        <span class="redirect-chain-duration">${(data.duration_ms?.toFixed?.(1) ?? data.duration_ms)} ms</span>
-                      </div>
-                    </div>
+        if (redirectChain.length > 0) {
+          const chainItems = redirectChain.map((item, idx) => {
+            const itemStatus = item.status || '?';
+            const itemMethod = item.method || 'GET';
+            const itemPath = item.route || item.url || '/';
+            const itemDuration = item.duration_ms ? item.duration_ms.toFixed(1) : '0.0';
+            const itemRedirectUrl = item.redirect_url || '';
+
+            return `
+              <div class="redirect-chain-item">
+                <div class="redirect-chain-header">
+                  <span class="badge badge-info">#${idx + 1}</span>
+                  <span class="redirect-chain-status">${itemStatus}</span>
+                  <span class="redirect-chain-method">${escapeHtml(itemMethod)}</span>
+                  <span class="redirect-chain-path">${escapeHtml(itemPath)}</span>
+                  <span class="redirect-chain-duration">${itemDuration} ms</span>
+                </div>
+                ${itemRedirectUrl ? `<div class="redirect-chain-arrow">Redirected to: ${escapeHtml(itemRedirectUrl)}</div>` : ''}
+              </div>
+            `;
+          }).join('');
+
+          redirectChainSection = `
+            <div class="section">
+              <div class="section-title">
+                <span class="section-title-main">Redirect Chain</span>
+                <span class="badge badge-warning">${redirectChain.length} redirect${redirectChain.length > 1 ? 's' : ''}</span>
+              </div>
+              <div class="redirect-chain-list">
+                ${chainItems}
+                <div class="redirect-chain-item redirect-chain-current">
+                  <div class="redirect-chain-header">
+                    <span class="badge badge-success">Current</span>
+                    <span class="redirect-chain-status">${data.status}</span>
+                    <span class="redirect-chain-method">${escapeHtml(data.method)}</span>
+                    <span class="redirect-chain-path">${escapeHtml(data.route)}</span>
+                    <span class="redirect-chain-duration">${(data.duration_ms?.toFixed?.(1) ?? data.duration_ms)} ms</span>
                   </div>
                 </div>
-              `;
-            }
-          } catch (e) {
-            console.error('Failed to parse redirect chain:', e);
-          }
+              </div>
+            </div>
+          `;
         }
         
         // Build auth section
