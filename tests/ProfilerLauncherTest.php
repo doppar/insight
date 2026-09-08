@@ -11,14 +11,14 @@ use Doppar\Insight\Collectors\TimeMemoryCollector;
 use Doppar\Insight\Contracts\StorageInterface;
 use Doppar\Insight\Middleware\ProfilerMiddleware;
 use Doppar\Insight\Profiler;
-use Doppar\Insight\ProfilerServiceProvider;
+use Doppar\Insight\ProfilerLauncher;
 use Doppar\Insight\Support\ErrorHistoryRecorder;
 use Phaseolies\Application;
 use Phaseolies\DI\Container;
 use Phaseolies\Http\Exceptions\NotFoundHttpException;
 use ReflectionMethod;
 
-class ProfilerServiceProviderTest extends TestCase
+class ProfilerLauncherTest extends TestCase
 {
     private ?Container $originalContainer = null;
 
@@ -27,7 +27,7 @@ class ProfilerServiceProviderTest extends TestCase
         parent::setUp();
 
         $this->originalContainer = Container::getInstance();
-        $property = new \ReflectionProperty(ProfilerServiceProvider::class, 'middlewareRegistered');
+        $property = new \ReflectionProperty(ProfilerLauncher::class, 'middlewareRegistered');
         $property->setValue(null, false);
     }
 
@@ -101,7 +101,7 @@ class ProfilerServiceProviderTest extends TestCase
         $app->instance(Profiler::class, $profiler);
         $app->instance(ErrorHistoryRecorder::class, new ErrorHistoryRecorder());
 
-        $provider = new ProfilerServiceProvider($app);
+        $provider = new ProfilerLauncher($app);
 
         $method = new ReflectionMethod($provider, 'registerErrorTracking');
         $method->invoke($provider);
@@ -151,7 +151,7 @@ class ProfilerServiceProviderTest extends TestCase
 
         Container::setInstance($app);
 
-        $provider = new ProfilerServiceProvider($app);
+        $provider = new ProfilerLauncher($app);
 
         $method = new \ReflectionMethod($provider, 'registerMiddleware');
         $method->invoke($provider);

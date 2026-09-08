@@ -17,8 +17,8 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.3, 8.4]
-        doppar: [2]
+        php: [8.5]
+        doppar: [4]
 
     name: PHP ${{ matrix.php }} - Doppar ${{ matrix.doppar }}
 
@@ -33,7 +33,7 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip
           ini-values: error_reporting=E_ALL
           tools: composer:v2
-          coverage: ${{ matrix.php == '8.4' && 'xdebug' || 'none' }}
+          coverage: ${{ matrix.php == '8.5' && 'xdebug' || 'none' }}
 
       - name: Install dependencies
         run: |
@@ -43,11 +43,11 @@ jobs:
         run: vendor/bin/phpunit --display-deprecations
 
       - name: Execute tests with coverage
-        if: matrix.php == '8.4'
+        if: matrix.php == '8.5'
         run: vendor/bin/phpunit --coverage-text --coverage-clover=coverage.xml
 
       - name: Upload coverage to Codecov
-        if: matrix.php == '8.4'
+        if: matrix.php == '8.5'
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
