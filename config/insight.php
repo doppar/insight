@@ -14,6 +14,22 @@ return [
     */
 
     'enabled' => true,
+    'allow_production' => false,
+    'sensitive_keys' => [
+        'password',
+        'token',
+        'secret',
+        'authorization',
+        'cookie',
+        'api_key',
+        'client_secret',
+        'access_token',
+        'refresh_token',
+        'credit_card',
+        'ssn',
+    ],
+    'redact_sql_bindings' => true,
+    'redact_raw_body' => true,
 
     /*
     |--------------------------------------------------------------------------

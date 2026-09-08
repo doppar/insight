@@ -3,11 +3,14 @@
 namespace Doppar\Insight\Collectors;
 
 use Doppar\Insight\Contracts\CollectorInterface;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 
 class RequestCollector implements CollectorInterface
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<string, mixed> */
     protected array $data = [];
 
@@ -21,16 +24,17 @@ class RequestCollector implements CollectorInterface
         // Collect headers
         $headers = function_exists('getallheaders') ? getallheaders() : [];
 
+        $sanitizer = $this->sanitizer();
+
         // Collect query and POST parameters
-        $query = $_GET;
-        $post = $_POST;
+        $query = $sanitizer->sanitize($_GET);
+        $post = $sanitizer->sanitize($_POST);
 
         // Collect request body for JSON/raw requests
         $body = null;
         $rawBody = file_get_contents('php://input');
         if (! empty($rawBody)) {
-            $jsonBody = json_decode($rawBody, true);
-            $body = json_last_error() === JSON_ERROR_NONE ? $jsonBody : $rawBody;
+            $body = $sanitizer->sanitizeRawBody($rawBody);
         }
 
         // Collect uploaded files
@@ -57,7 +61,7 @@ class RequestCollector implements CollectorInterface
             'request_query' => $query,
             'request_params' => $post,
             'request_body' => $body,
-            'request_cookies' => $_COOKIE,
+            'request_cookies' => $sanitizer->sanitize($_COOKIE),
             'request_files' => $files,
             'request_server' => array_filter($server, fn ($v) => $v !== null),
         ];

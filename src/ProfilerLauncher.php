@@ -4,6 +4,7 @@ namespace Doppar\Insight;
 
 use Doppar\Insight\Support\ErrorHistoryRecorder;
 use Doppar\Insight\Support\InsightBeforeExceptionHandler;
+use Doppar\Insight\Support\SensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 use Phaseolies\Launchers\ServiceLauncher;
@@ -21,6 +22,7 @@ class ProfilerLauncher extends ServiceLauncher
             return;
         }
 
+        $this->registerSanitizer();
         $this->registerProfiler();
     }
 
@@ -51,6 +53,14 @@ class ProfilerLauncher extends ServiceLauncher
         $config = config('insight');
 
         return is_array($config) && ! empty($config['enabled']);
+    }
+
+    protected function registerSanitizer(): void
+    {
+        $this->app->singleton(
+            SensitiveDataSanitizer::class,
+            fn (): SensitiveDataSanitizer => SensitiveDataSanitizer::fromConfig()
+        );
     }
 
     /**

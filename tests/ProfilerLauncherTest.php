@@ -124,6 +124,51 @@ class ProfilerLauncherTest extends TestCase
         $this->assertSame('GET', $recent[0]['method']);
     }
 
+    public function testProfilerIsDisabledInProductionUnlessExplicitlyAllowed(): void
+    {
+        $app = new class extends Application
+        {
+            public function __construct()
+            {
+            }
+
+            public function isProduction(): bool
+            {
+                return true;
+            }
+
+            public function isDevelopment(): bool
+            {
+                return false;
+            }
+        };
+
+        Container::setInstance($app);
+
+        $storage = new class implements StorageInterface
+        {
+            public function put(string $id, array $data): void
+            {
+            }
+
+            public function get(string $id): ?array
+            {
+                return null;
+            }
+
+            public function recent(int $limit = 50): array
+            {
+                return [];
+            }
+        };
+
+        $this->assertFalse((new Profiler(['enabled' => true], $storage))->isGloballyEnabled());
+        $this->assertTrue((new Profiler([
+            'enabled' => true,
+            'allow_production' => true,
+        ], $storage))->isGloballyEnabled());
+    }
+
     public function testRegisterMiddlewareIsIdempotent(): void
     {
         $router = new class {

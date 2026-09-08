@@ -4,10 +4,13 @@ namespace Doppar\Insight\DB;
 
 use DateTimeInterface;
 use Doppar\Insight\Collectors\SqlCollector;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Database\Database;
 
 class ProfilerPdoStatement extends \PDOStatement
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<int|string, mixed> */
     protected array $bound = [];
 
@@ -46,6 +49,9 @@ class ProfilerPdoStatement extends \PDOStatement
     {
         $rawBindings = $this->mergeBindings($input_parameters, false);
         $bindings = $this->normalizeBindings($rawBindings);
+        $sanitizer = $this->sanitizer();
+        $bindingSignature = $this->bindingSignature($bindings);
+        $bindings = $sanitizer->sanitizeSqlBindings($bindings);
         $start = microtime(true);
         $ok = false;
         $err = null;
@@ -73,9 +79,22 @@ class ProfilerPdoStatement extends \PDOStatement
                     $err,
                     $this->connectionName,
                     $this->resolveDriverName(),
-                    $this->resolveTransactionState()
+                    $this->resolveTransactionState(),
+                    $bindingSignature
                 );
             }
+        }
+    }
+
+    /**
+     * @param array<int|string, mixed> $bindings
+     */
+    protected function bindingSignature(array $bindings): string
+    {
+        try {
+            return hash('sha256', serialize($bindings));
+        } catch (\Throwable) {
+            return hash('sha256', json_encode($bindings, JSON_PARTIAL_OUTPUT_ON_ERROR) ?: '');
         }
     }
 
