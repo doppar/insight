@@ -127,6 +127,26 @@ class AssetBuilderTest extends TestCase
         }
     }
 
+    public function testSqlComponentRendersQueriesFromRedirectedRequests(): void
+    {
+        $js = $this->builder->buildJs();
+
+        $this->assertStringContainsString('Queries from redirected requests', $js);
+        $this->assertStringContainsString('data.redirect_chain', $js);
+        $this->assertStringContainsString('redirected-sql-list', $js);
+    }
+
+    public function testToolbarRendersQueriesFromRedirectedRequests(): void
+    {
+        $toolbarPath = __DIR__ . '/../resources/assets/toolbar.js';
+        $toolbar = file_get_contents($toolbarPath);
+
+        $this->assertIsString($toolbar);
+        $this->assertStringContainsString('const redirectedQueries = redirectChain.flatMap', $toolbar);
+        $this->assertStringContainsString('redirected-sql-list', $toolbar);
+        $this->assertStringNotContainsString('redirect-chain-sql', $toolbar);
+    }
+
     public function testGetLogoReturnsDataUri(): void
     {
         $logo = $this->builder->getLogo();
