@@ -183,7 +183,12 @@ class Profiler
         self::$storage[$this->requestId] = $this->data;
 
         // Persist via storage driver for cross-request retrieval
-        $this->storageDriver->put($this->requestId, $this->data);
+        try {
+            $this->storageDriver->put($this->requestId, $this->data);
+        } catch (Throwable) {
+            // Insight persistence must never interrupt the profiled request.
+        }
+
         $this->stopped = true;
         $this->started = false;
     }

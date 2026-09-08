@@ -342,4 +342,52 @@ class FileStorageTest extends TestCase
         $this->assertFileExists($stalePath);
         $this->assertFileExists($markerPath);
     }
+
+    public function testPutTruncatesProfilesThatExceedTheConfiguredSize(): void
+    {
+        $storage = new FileStorage($this->testDir, 1, 1024, 104857600);
+        $storage->put('large', ['response_preview' => str_repeat('x', 10000)]);
+
+        $path = $this->testDir . '/large.json';
+
+        $this->assertFileExists($path);
+        $this->assertLessThanOrEqual(1024, filesize($path));
+        $this->assertTrue((bool) ($storage->get('large')['_insight_truncated'] ?? false));
+    }
+
+    public function testPutEnforcesTheStorageQuotaDuringCleanup(): void
+    {
+        $storage = new FileStorage($this->testDir, 1, 1048576, 2000);
+        $payload = ['response_preview' => str_repeat('x', 900)];
+
+        $storage->put('oldest', $payload);
+        touch($this->testDir . '/oldest.json', time() - 3);
+        $storage->put('middle', $payload);
+        touch($this->testDir . '/middle.json', time() - 2);
+        touch($this->testDir . '/.cleanup-marker', time() - 86401);
+        $storage->put('newest', $payload);
+
+        $files = glob($this->testDir . '/*.json') ?: [];
+        $totalSize = array_sum(array_map(static fn (string $file): int => (int) filesize($file), $files));
+
+        $this->assertLessThanOrEqual(2000, $totalSize);
+        $this->assertFileExists($this->testDir . '/newest.json');
+    }
+
+    public function testPutFailsOpenWhenTheStorageDirectoryCannotBeCreated(): void
+    {
+        $filePath = tempnam(sys_get_temp_dir(), 'insight-storage-');
+        $this->assertNotFalse($filePath);
+
+        try {
+            $storage = new FileStorage($filePath, 1);
+            $storage->put('unwritable', ['data' => 'value']);
+
+            $this->assertFileDoesNotExist($filePath . DIRECTORY_SEPARATOR . 'unwritable.json');
+        } finally {
+            if (is_string($filePath) && is_file($filePath)) {
+                unlink($filePath);
+            }
+        }
+    }
 }
