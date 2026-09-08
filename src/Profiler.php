@@ -40,6 +40,7 @@ class Profiler
     {
         $this->config = array_merge([
             'enabled' => null, // null => auto by env
+            'allow_production' => false,
             'allow_ips' => ['127.0.0.1', '::1'],
         ], $config);
 
@@ -49,11 +50,24 @@ class Profiler
 
     public function isGloballyEnabled(): bool
     {
+        if ($this->isProductionEnvironment() && empty($this->config['allow_production'])) {
+            return false;
+        }
+
         if (($this->config['enabled'] ?? null) !== null) {
             return (bool) $this->config['enabled'];
         }
 
         return app()->isDevelopment();
+    }
+
+    protected function isProductionEnvironment(): bool
+    {
+        try {
+            return app()->isProduction();
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function addCollector(CollectorInterface $collector): void

@@ -3,11 +3,15 @@
 namespace Doppar\Insight\Collectors;
 
 use Doppar\Insight\Contracts\CollectorInterface;
+use Doppar\Insight\Support\SensitiveDataSanitizer;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 
 class CacheCollector implements CollectorInterface
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<int, array<string, mixed>> */
     protected array $operations = [];
 
@@ -51,7 +55,9 @@ class CacheCollector implements CollectorInterface
         bool $hit = false,
         array $meta = []
     ): void {
-        $normalized = $this->normalizedForJson($value);
+        $sanitizer = $this->sanitizer();
+        $value = $sanitizer->sanitize($value);
+        $normalized = $sanitizer->sanitize($this->normalizedForJson($value));
         $valueJson = null;
         if ($normalized !== null) {
             $encoded = json_encode($normalized, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
@@ -61,7 +67,7 @@ class CacheCollector implements CollectorInterface
         $operation = [
             'type' => $type,
             'key' => $key,
-            'value' => $this->formatValue($value),
+            'value' => $this->sanitizeFormattedValue($this->formatValue($value), $sanitizer),
             'value_json' => $valueJson,
             'hit' => $hit,
             'time' => microtime(true),
@@ -80,6 +86,11 @@ class CacheCollector implements CollectorInterface
         }
 
         $this->operations[] = $operation;
+    }
+
+    private function sanitizeFormattedValue(mixed $value, SensitiveDataSanitizer $sanitizer): mixed
+    {
+        return is_string($value) ? $sanitizer->sanitizeText($value) : $sanitizer->sanitize($value);
     }
 
     protected function formatValue(mixed $value): mixed

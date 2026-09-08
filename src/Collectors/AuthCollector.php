@@ -3,12 +3,15 @@
 namespace Doppar\Insight\Collectors;
 
 use Doppar\Insight\Contracts\CollectorInterface;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 use Phaseolies\Support\Facades\Auth;
 
 class AuthCollector implements CollectorInterface
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<string, mixed> */
     protected array $data = [];
 
@@ -40,9 +43,8 @@ class AuthCollector implements CollectorInterface
                     $this->data['user_email'] = $user->email ?? null;
 
                     // Store safe user data (excluding sensitive fields)
-                    $userData = is_object($user) && method_exists($user, 'toArray') ? $user->toArray() : (array)$user;
-                    unset($userData['password'], $userData['remember_token'], $userData['two_factor_secret'], $userData['two_factor_recovery_codes']);
-                    $this->data['user'] = $userData;
+                    $userData = is_object($user) && method_exists($user, 'toArray') ? $user->toArray() : (array) $user;
+                    $this->data['user'] = $this->sanitizer()->sanitize($userData);
                 }
             }
         } catch (\Exception $e) {

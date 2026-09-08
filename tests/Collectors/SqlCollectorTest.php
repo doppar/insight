@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Doppar\Insight\Tests\Collectors;
 
 use Doppar\Insight\Collectors\SqlCollector;
+use Doppar\Insight\Support\SensitiveDataSanitizer;
 use Doppar\Insight\Tests\TestCase;
 
 class SqlCollectorTest extends TestCase
@@ -61,7 +62,7 @@ class SqlCollectorTest extends TestCase
         
         $this->assertCount(1, $data['sql']);
         $this->assertEquals($sql, $data['sql'][0]['sql']);
-        $this->assertEquals($bindings, $data['sql'][0]['bindings']);
+        $this->assertSame([SensitiveDataSanitizer::REDACTED], $data['sql'][0]['bindings']);
         $this->assertEquals($duration, $data['sql'][0]['duration_ms']);
         $this->assertFalse($data['sql'][0]['is_slow']);
     }
@@ -122,7 +123,12 @@ class SqlCollectorTest extends TestCase
         
         $data = $this->collector->toArray();
         
-        $this->assertEquals($bindings, $data['sql'][0]['bindings']);
+        $this->assertSame([
+            'id' => SensitiveDataSanitizer::REDACTED,
+            'name' => SensitiveDataSanitizer::REDACTED,
+            'email' => SensitiveDataSanitizer::REDACTED,
+            'active' => SensitiveDataSanitizer::REDACTED,
+        ], $data['sql'][0]['bindings']);
     }
 
     public function testDetectsSlowQueries(): void

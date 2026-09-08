@@ -3,11 +3,14 @@
 namespace Doppar\Insight\Collectors;
 
 use Doppar\Insight\Contracts\CollectorInterface;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 
 class SqlCollector implements CollectorInterface
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<int, array<string, mixed>> */
     protected array $queries = [];
 
@@ -59,11 +62,17 @@ class SqlCollector implements CollectorInterface
         ?string $error = null,
         ?string $connectionName = null,
         ?string $driverName = null,
-        ?bool $transactionActive = null
+        ?bool $transactionActive = null,
+        ?string $bindingSignature = null
     ): void {
+        $sanitizer = $this->sanitizer();
+        $bindingSignature ??= $this->bindingSignature($bindings);
+        $bindings = $sanitizer->sanitizeSqlBindings($bindings);
+
         $this->queries[] = [
             'sql' => $sql,
             'bindings' => $bindings,
+            'binding_signature' => $bindingSignature,
             'duration_ms' => $durationMs,
             'row_count' => $rowCount,
             'error' => $error,
@@ -130,9 +139,17 @@ class SqlCollector implements CollectorInterface
      */
     protected function bindingSignature(array $bindings): string
     {
-        $encoded = json_encode($bindings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $encoded = json_encode($bindings, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR);
 
-        return $encoded === false ? md5(serialize($bindings)) : $encoded;
+        if ($encoded !== false) {
+            return $encoded;
+        }
+
+        try {
+            return hash('sha256', serialize($bindings));
+        } catch (\Throwable) {
+            return hash('sha256', implode('|', array_map('get_debug_type', $bindings)));
+        }
     }
 
     /**
@@ -147,7 +164,7 @@ class SqlCollector implements CollectorInterface
         foreach ($queries as $index => $query) {
             $fingerprint = $this->normalizeFingerprint((string) ($query['sql'] ?? ''));
             $fingerprints[$index] = $fingerprint;
-            $bindingVariants[$fingerprint][$this->bindingSignature((array) ($query['bindings'] ?? []))] = true;
+            $bindingVariants[$fingerprint][$query['binding_signature'] ?? $this->bindingSignature((array) ($query['bindings'] ?? []))] = true;
         }
 
         $counts = array_count_values($fingerprints);
@@ -188,6 +205,7 @@ class SqlCollector implements CollectorInterface
                 ];
             }
 
+            unset($query['binding_signature']);
             $query['duplicate_count'] = $duplicateCount;
             $query['duplicate_index'] = $occurrenceOrder[$fingerprint];
             $query['binding_variant_count'] = $bindingVariantCount;
