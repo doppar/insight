@@ -3,11 +3,14 @@
 namespace Doppar\Insight\Collectors;
 
 use Doppar\Insight\Contracts\CollectorInterface;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 
 class ResponseCollector implements CollectorInterface
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<string, mixed> */
     protected array $data = [];
 
@@ -218,7 +221,7 @@ class ResponseCollector implements CollectorInterface
         $body = $response->body ?? '';
 
         if ($body !== '') {
-            return $this->prettyBodyIfJson($body, $contentType);
+            return $this->sanitizePreview($body, $contentType);
         }
 
         $original = $response->getOriginal();
@@ -228,7 +231,7 @@ class ResponseCollector implements CollectorInterface
         }
 
         if (is_string($original)) {
-            return $this->prettyBodyIfJson($original, $contentType);
+            return $this->sanitizePreview($original, $contentType);
         }
 
         if (is_scalar($original)) {
@@ -237,7 +240,21 @@ class ResponseCollector implements CollectorInterface
 
         $encoded = json_encode($original, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
-        return $encoded === false ? null : $encoded;
+        return $encoded === false ? null : $this->sanitizePreview($encoded, $contentType);
+    }
+
+    protected function sanitizePreview(string $body, string $contentType): string
+    {
+        $sanitizer = $this->sanitizer();
+        $sanitized = $sanitizer->sanitizeJsonOrText($body);
+
+        if (is_array($sanitized)) {
+            $encoded = json_encode($sanitized, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+            return $encoded === false ? '' : $encoded;
+        }
+
+        return $this->prettyBodyIfJson((string) $sanitized, $contentType);
     }
 
     protected function prettyBodyIfJson(string $body, string $contentType): string

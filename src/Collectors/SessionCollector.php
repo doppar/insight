@@ -3,11 +3,14 @@
 namespace Doppar\Insight\Collectors;
 
 use Doppar\Insight\Contracts\CollectorInterface;
+use Doppar\Insight\Support\UsesSensitiveDataSanitizer;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
 
 class SessionCollector implements CollectorInterface
 {
+    use UsesSensitiveDataSanitizer;
+
     /** @var array<string, mixed> */
     protected array $data = [];
 
@@ -25,7 +28,8 @@ class SessionCollector implements CollectorInterface
         if (isset($_SESSION)) {
             $sessionData = $_SESSION;
             unset($sessionData['password'], $sessionData['_token']);
-            $this->data['session_data'] = $sessionData;
+            $sanitizer = $this->sanitizer();
+            $this->data['session_data'] = $sanitizer->sanitize($sessionData);
         }
     }
 
