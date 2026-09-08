@@ -16,7 +16,9 @@ class FileStorage implements StorageInterface
 
     public function __construct(
         ?string $baseDir = null,
-        private readonly int $retentionDays = 1
+        private readonly int $retentionDays = 1,
+        private readonly int $maxProfileBytes = 1048576,
+        private readonly int $maxStorageBytes = 104857600
     ) {
         $this->baseDir = $baseDir ?? rtrim(storage_path('framework/profiler'), DIRECTORY_SEPARATOR);
     }
@@ -33,16 +35,99 @@ class FileStorage implements StorageInterface
 
     public function put(string $id, array $data): void
     {
-        $dir = $this->dir();
+        try {
+            $dir = $this->dir();
 
-        if (! is_dir($dir)) {
-            mkdir($dir, 0777, true);
+            if (! is_dir($dir) && ! @mkdir($dir, 0777, true) && ! is_dir($dir)) {
+                return;
+            }
+
+            $json = $this->encodeProfile($id, $data);
+            if ($json === null) {
+                return;
+            }
+
+            $path = $dir . DIRECTORY_SEPARATOR . $id . '.json';
+            $temporaryPath = tempnam($dir, '.insight-');
+            if ($temporaryPath === false) {
+                return;
+            }
+
+            try {
+                $written = file_put_contents($temporaryPath, $json, LOCK_EX);
+                if ($written !== strlen($json) || ! rename($temporaryPath, $path)) {
+                    return;
+                }
+            } finally {
+                if (is_file($temporaryPath)) {
+                    @unlink($temporaryPath);
+                }
+            }
+
+            $this->cleanupOldFiles();
+        } catch (\Throwable) {
+            // Insight persistence must never interrupt the profiled request.
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function encodeProfile(string $id, array $data): ?string
+    {
+        try {
+            $json = json_encode($data, JSON_THROW_ON_ERROR);
+            $limit = max(1024, $this->maxProfileBytes);
+
+            if (strlen($json) <= $limit) {
+                return $json;
+            }
+
+            $compact = $this->compactValue($data);
+            $compact['_insight_truncated'] = true;
+            $json = json_encode($compact, JSON_THROW_ON_ERROR);
+
+            if (strlen($json) <= $limit) {
+                return $json;
+            }
+
+            return json_encode([
+                'id' => substr($id, 0, 128),
+                'method' => substr((string) ($data['method'] ?? ''), 0, 16),
+                'route' => substr((string) ($data['route'] ?? '/'), 0, 256),
+                'status' => (int) ($data['status'] ?? 0),
+                'duration_ms' => (float) ($data['duration_ms'] ?? 0),
+                '_insight_truncated' => true,
+            ], JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return null;
+        }
+    }
+
+    private function compactValue(mixed $value, int $depth = 0): mixed
+    {
+        if ($depth >= 8) {
+            return '[truncated]';
         }
 
-        $path = $dir . DIRECTORY_SEPARATOR . $id . '.json';
-        file_put_contents($path, json_encode($data, JSON_THROW_ON_ERROR));
+        if (is_string($value)) {
+            return strlen($value) > 4096 ? substr($value, 0, 4096) . '...[truncated]' : $value;
+        }
 
-        $this->cleanupOldFiles();
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $compact = [];
+        foreach (array_slice($value, 0, 100, true) as $key => $item) {
+            $compact[$key] = $this->compactValue($item, $depth + 1);
+        }
+
+        if (count($value) > 100) {
+            $compact['_insight_truncated_items'] = count($value) - 100;
+        }
+
+        return $compact;
     }
 
     public function get(string $id): ?array
@@ -181,10 +266,49 @@ class FileStorage implements StorageInterface
             $mtime = filemtime($file);
 
             if ($mtime !== false && $mtime < $cutoffTime) {
-                unlink($file);
+                @unlink($file);
             }
         }
 
-        touch($markerPath, $now);
+        $this->enforceStorageQuota();
+        @touch($markerPath, $now);
+    }
+
+    private function enforceStorageQuota(): void
+    {
+        if ($this->maxStorageBytes <= 0) {
+            return;
+        }
+
+        $files = glob($this->dir() . DIRECTORY_SEPARATOR . '*.json') ?: [];
+        usort(
+            $files,
+            static fn (string $left, string $right): int =>
+                (int) (filemtime($left) ?: 0) <=> (int) (filemtime($right) ?: 0)
+        );
+
+        $sizes = [];
+        $total = 0;
+        foreach ($files as $file) {
+            $size = filesize($file);
+            if ($size === false) {
+                continue;
+            }
+
+            $sizes[$file] = $size;
+            $total += $size;
+        }
+
+        foreach ($files as $file) {
+            if ($total <= $this->maxStorageBytes) {
+                break;
+            }
+
+            if (! isset($sizes[$file]) || ! @unlink($file)) {
+                continue;
+            }
+
+            $total -= $sizes[$file];
+        }
     }
 }

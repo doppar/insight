@@ -66,11 +66,18 @@ class ProfilerLauncher extends ServiceLauncher
                 $config = [];
             }
 
-            $retentionDays = $config['retention_days'] ?? 1;
+            $retentionDays = (int) ($config['retention_days'] ?? 1);
+            $maxProfileBytes = (int) ($config['max_profile_bytes'] ?? 1048576);
+            $maxStorageBytes = (int) ($config['max_storage_bytes'] ?? 104857600);
 
             $profiler = new Profiler(
                 $config,
-                new \Doppar\Insight\Storage\FileStorage(null, $retentionDays)
+                new \Doppar\Insight\Storage\FileStorage(
+                    null,
+                    $retentionDays,
+                    $maxProfileBytes,
+                    $maxStorageBytes
+                )
             );
 
             $this->registerCollectors($profiler);
