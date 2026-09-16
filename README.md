@@ -50,33 +50,13 @@ Insight is useful when you want to inspect SQL queries, cache usage, authenticat
   </tr>
 </table>
 
-## Production Usage
-Doppar Insight is primarily a development and diagnostics tool. It can capture sensitive request data, exception details, session state, logs, query information, and recent traffic history, so it should not be left enabled for normal public production traffic.
-
-If you need to use Insight on a live server, treat it as a temporary internal debugging tool:
-
-- keep it disabled by default
-- enable it only for short troubleshooting windows
-- restrict access to trusted internal or VPN IP addresses only
-- avoid exposing the toolbar and history endpoints to public users
-
-A safer production-style configuration looks like this:
-
-```php
-return [
-    'enabled' => false,
-    'allow_ips' => ['127.0.0.1', '::1'],
-    'retention_days' => 1,
-];
-```
-
 ## Contributing
 
-Thank you for considering contributing to the Doppar framework! The contribution guide can be found in the [Doppar documentation](https://doppar.com/versions/3.x/contributions).
+Thank you for considering contributing to the Doppar framework! The contribution guide can be found in the [Doppar documentation](https://doppar.com/versions/4.x/contributions).
 
 ## Code of Conduct
 
-In order to ensure that the Doppar community is welcoming to all, please review and abide by the [Code of Conduct](https://doppar.com/versions/3.x/contributions#code-of-conduct).
+In order to ensure that the Doppar community is welcoming to all, please review and abide by the [Code of Conduct](https://doppar.com/versions/4.x/contributions#code-of-conduct).
 
 ## Security Vulnerabilities
 
