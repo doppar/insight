@@ -8,7 +8,7 @@
     "debug",
     "toolbar"
   ],
-  "homepage": "https://doppar.com/versions/4.x/doppar-insight.html",
+  "homepage": "https://doppar.com/versions/4.x/doppar-insight",
   "type": "library",
   "license": "MIT",
   "support": {
