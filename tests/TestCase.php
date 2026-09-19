@@ -43,7 +43,9 @@ abstract class TestCase extends BaseTestCase
         $_FILES = $originalFiles;
 
         try {
-            return new Request();
+            // Since 4.x the constructor no longer reads the superglobals, so
+            // pass them in explicitly.
+            return new Request($_GET, $_POST, [], $_COOKIE, $_FILES, $_SERVER);
         } finally {
             $_SERVER = $originalServer;
             $_GET = $originalGet;
