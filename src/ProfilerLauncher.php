@@ -125,8 +125,14 @@ class ProfilerLauncher extends ServiceLauncher
 
         $router = app('route');
 
-        if (is_object($router) && method_exists($router, 'applyMiddleware')) {
-            $router->applyMiddleware(
+        // Since 4.x the router no longer extends the HTTP kernel, so the
+        // global middleware chain lives on the gateway it depends on.
+        $gateway = is_object($router) && method_exists($router, 'getGateway')
+            ? $router->getGateway()
+            : $router;
+
+        if (is_object($gateway) && method_exists($gateway, 'applyMiddleware')) {
+            $gateway->applyMiddleware(
                 app(\Doppar\Insight\Middleware\ProfilerMiddleware::class)
             );
             self::$middlewareRegistered = true;
