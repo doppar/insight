@@ -179,7 +179,7 @@ window.DopparProfiler = {
           <div class="live-ajax-detail-grid">
             <span>Status<strong>${escape(status || 'ERR')}</strong></span>
             <span>Duration<strong>${escape(Number(profile.duration_ms || item.duration || 0).toFixed(2))} ms</strong></span>
-            <span>SQL<strong>${escape(sqlCount)} · ${escape(sqlTime)} ms</strong></span>
+            <span>Query<strong>${escape(sqlCount)} · ${escape(sqlTime)} ms</strong></span>
             <span>Logs<strong>${escape(logs)}</strong></span>
             <span>Cache<strong>${escape(cache)}</strong></span>
             <span>Response<strong>${escape(responseSize)} bytes</strong></span>
