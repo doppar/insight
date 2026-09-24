@@ -68,7 +68,7 @@ class ProfilerController
 
         // Get redirect chain from stored data (not from session)
         $redirectChain = $data['redirect_chain'] ?? [];
-        $redirectChainJson = json_encode($redirectChain);
+        $redirectChainJson = json_encode($redirectChain, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
 
         // Encode data as JSON for JavaScript
         $dataJson = json_encode($data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);

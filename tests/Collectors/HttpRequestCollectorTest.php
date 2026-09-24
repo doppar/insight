@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Doppar\Insight\Tests\Collectors;
 
 use Doppar\Insight\Collectors\HttpRequestCollector;
+use Doppar\Insight\Collectors\RequestCollector;
 use Doppar\Insight\Tests\TestCase;
 
 class HttpRequestCollectorTest extends TestCase
@@ -137,6 +138,31 @@ class HttpRequestCollectorTest extends TestCase
         $this->assertIsArray($data['http_requests']);
         $this->assertIsInt($data['http_requests_count']);
         $this->assertIsFloat($data['http_requests_total_time_ms']);
+    }
+
+    public function testAjaxRequestIsMarkedByRequestCollector(): void
+    {
+        $request = $this->createRequest('POST', '/api/users', [
+            'HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $collector = new RequestCollector();
+        $collector->start($request);
+
+        $this->assertTrue($collector->toArray()['is_ajax']);
+    }
+
+    public function testRegularHtmlRequestIsNotMarkedAsAjax(): void
+    {
+        $request = $this->createRequest('GET', '/users', [
+            'HTTP_ACCEPT' => 'text/html,application/xhtml+xml',
+        ]);
+
+        $collector = new RequestCollector();
+        $collector->start($request);
+
+        $this->assertFalse($collector->toArray()['is_ajax']);
     }
 
     public function testEmptyRequestsList(): void

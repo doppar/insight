@@ -22,7 +22,7 @@ class RequestCollector implements CollectorInterface
     public function start(Request $request): void
     {
         // Collect headers
-        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        $headers = $request->headers->all();
 
         $sanitizer = $this->sanitizer();
 
@@ -57,6 +57,7 @@ class RequestCollector implements CollectorInterface
         ];
 
         $this->data = [
+            'is_ajax' => self::isAjax($request),
             'request_headers' => $headers,
             'request_query' => $query,
             'request_params' => $post,
@@ -75,5 +76,20 @@ class RequestCollector implements CollectorInterface
     public function toArray(): array
     {
         return $this->data;
+    }
+
+    public static function isAjax(Request $request): bool
+    {
+        $requestedWith = strtolower((string) $request->headers->get('X-Requested-With', ''));
+        if ($requestedWith === 'xmlhttprequest') {
+            return true;
+        }
+
+        $accept = strtolower((string) $request->headers->get('Accept', ''));
+        $fetchDestination = strtolower((string) $request->headers->get('Sec-Fetch-Dest', ''));
+
+        return $fetchDestination === 'empty'
+            && $accept !== ''
+            && ! str_contains($accept, 'text/html');
     }
 }

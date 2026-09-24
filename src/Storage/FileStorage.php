@@ -212,6 +212,8 @@ class FileStorage implements StorageInterface
             'route' => $route,
             'status' => (int) ($data['status'] ?? $data['response_status'] ?? 0),
             'duration_ms' => (float) ($data['total_duration_ms'] ?? $data['duration_ms'] ?? 0),
+            'is_ajax' => (bool) ($data['is_ajax'] ?? false),
+            'content_type' => (string) ($data['response_content_type'] ?? $data['content_type'] ?? ''),
             'exception_class' => isset($data['exception_class']) ? (string) $data['exception_class'] : null,
             'exception_message' => isset($data['exception_message']) ? (string) $data['exception_message'] : null,
             'captured_at' => $timestamp > 0 ? gmdate(DATE_ATOM, $timestamp) : null,

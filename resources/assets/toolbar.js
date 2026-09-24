@@ -1,6 +1,8 @@
 window.DopparProfiler = {
   open: false,
   closeAnimationPromise: null,
+  liveAjax: [],
+  liveAjaxContainers: [],
   cancelCloseAnimation(){
     if(this.closeAnimationPromise){
       this.closeAnimationPromise.cancelled = true;
@@ -78,6 +80,130 @@ window.DopparProfiler = {
     try {
       window.localStorage.setItem('doppar.insight.quickview.theme', resolved);
     } catch (error) {}
+  },
+  updateAjaxIndicators(){
+    const host = document.getElementById('doppar-profiler');
+    const chip = host?.shadowRoot?.querySelector('.dp-ajax-chip');
+    if(chip){
+      chip.textContent = `AJAX ${this.liveAjax.length}`;
+    }
+    const panel = document.getElementById('doppar-profiler-panel');
+    panel?.shadowRoot?.querySelectorAll('[data-live-ajax-count]').forEach((counter) => {
+      counter.textContent = String(this.liveAjax.length);
+    });
+  },
+  recordAjax(entry){
+    const existing = this.liveAjax.find((item) => item.id && entry.id && item.id === entry.id);
+    if(existing){
+      const profile = existing.profile;
+      Object.assign(existing, entry);
+      if(!entry.profile && profile){
+        existing.profile = profile;
+      }
+    } else {
+      this.liveAjax.push(entry);
+      if(this.liveAjax.length > 100){
+        this.liveAjax.shift();
+      }
+    }
+    this.updateAjaxIndicators();
+    this.liveAjaxContainers.forEach((container) => this.renderLiveAjaxSection(container));
+  },
+  mergeAjaxHistory(history){
+    (Array.isArray(history) ? history : [])
+      .filter((item) => item.is_ajax === true)
+      .forEach((item) => this.recordAjax({
+        id: String(item.id || ''),
+        method: item.method || 'GET',
+        url: item.route || '/',
+        status: item.status || 0,
+        duration: Number(item.duration_ms || 0),
+        profile: item.profile || null,
+      }));
+  },
+  enrichAjax(entry){
+    if(!entry?.id){
+      return;
+    }
+    fetch('/_insight/api/' + encodeURIComponent(entry.id) + '?_=' + Date.now(), { cache: 'no-store' })
+      .then((response) => response.ok ? response.json() : null)
+      .then((profile) => {
+        if(profile){
+          entry.profile = profile;
+          this.liveAjaxContainers.forEach((container) => this.renderLiveAjaxSection(container));
+        }
+      })
+      .catch(() => {});
+  },
+  renderLiveAjaxSection(container){
+    if(!container){
+      return;
+    }
+    this.updateAjaxIndicators();
+    const escape = (value) => {
+      const element = document.createElement('div');
+      element.textContent = String(value ?? '');
+      return element.innerHTML;
+    };
+    let section = container.querySelector('[data-live-ajax-section]');
+    if(!section){
+      section = document.createElement('div');
+      section.className = 'section';
+      section.setAttribute('data-live-ajax-section', 'true');
+      container.appendChild(section);
+    }
+    const items = this.liveAjax.slice().reverse().map((item) => {
+      const profile = item.profile || {};
+      const status = Number(profile.status || item.status || 0);
+      const error = profile.exception_message || (status >= 400 ? profile.response_status_text : '');
+      const sqlCount = Number(profile.sql_total_count || (Array.isArray(profile.sql) ? profile.sql.length : 0));
+      const sqlTime = Number(profile.sql_total_time_ms || 0).toFixed(2);
+      const logs = Number(profile.logs_total_count || (Array.isArray(profile.logs) ? profile.logs.length : 0));
+      const cache = Number(profile.cache_total || 0);
+      const responseSize = Number(profile.response_body_size || 0);
+      const responseType = profile.response_content_type || profile.content_type || 'unknown';
+      const detail = profile.request_body || profile.request_query || profile.request_params
+        ? JSON.stringify({
+            query: profile.request_query || {},
+            params: profile.request_params || {},
+            body: profile.request_body || null,
+          }, null, 2)
+        : '';
+
+      return `
+        <details class="live-ajax-item" data-ajax-id="${escape(item.id)}" ${item === this.liveAjax[this.liveAjax.length - 1] ? 'open' : ''}>
+          <summary class="live-ajax-summary">
+            <span><strong>${escape(item.method)}</strong> ${escape(item.url)}</span>
+            <span>${escape(status || 'ERR')} · ${escape(Number(item.duration || profile.duration_ms || 0).toFixed(1))} ms</span>
+          </summary>
+          <div class="live-ajax-detail-grid">
+            <span>Status<strong>${escape(status || 'ERR')}</strong></span>
+            <span>Duration<strong>${escape(Number(profile.duration_ms || item.duration || 0).toFixed(2))} ms</strong></span>
+            <span>SQL<strong>${escape(sqlCount)} · ${escape(sqlTime)} ms</strong></span>
+            <span>Logs<strong>${escape(logs)}</strong></span>
+            <span>Cache<strong>${escape(cache)}</strong></span>
+            <span>Response<strong>${escape(responseSize)} bytes</strong></span>
+            <span>Type<strong>${escape(responseType)}</strong></span>
+            <span>Request ID<strong>${escape(item.id || 'not available')}</strong></span>
+          </div>
+          ${error ? `<div class="live-ajax-error">${escape(error)}</div>` : ''}
+          ${detail ? `<pre class="live-ajax-payload">${escape(detail)}</pre>` : ''}
+          ${profile.response_preview ? `<pre class="live-ajax-payload">${escape(profile.response_preview)}</pre>` : ''}
+        </details>
+      `;
+    }).join('');
+    section.innerHTML = `
+      <div class="section-title"><span class="section-title-main">AJAX Requests</span><span class="badge badge-info">${this.liveAjax.length}</span></div>
+      <p class="section-copy">All asynchronous requests observed on this page. Click a request to inspect its runtime profile.</p>
+      ${items ? `<div class="live-ajax-list">${items}</div>` : '<div class="no-data">No AJAX request observed yet.</div>'}
+    `;
+    section.querySelectorAll('details[data-ajax-id]').forEach((detail) => {
+      detail.addEventListener('toggle', () => {
+        if(detail.open && !this.liveAjax.find((item) => item.id === detail.dataset.ajaxId)?.profile){
+          this.enrichAjax(this.liveAjax.find((item) => item.id === detail.dataset.ajaxId));
+        }
+      });
+    });
   },
   getToolbarBounds(){
     const host = document.getElementById('doppar-profiler');
@@ -480,6 +606,7 @@ window.DopparProfiler = {
           }
           .nav-icon-overview { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='3' width='7' height='7' rx='1.5'/%3E%3Crect x='3' y='14' width='7' height='7' rx='1.5'/%3E%3Crect x='14' y='14' width='7' height='7' rx='1.5'/%3E%3C/svg%3E"); }
           .nav-icon-history { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 8v5l3 2'/%3E%3Cpath d='M3.05 11A9 9 0 1 1 6 17.3'/%3E%3Cpath d='M3 4v5h5'/%3E%3C/svg%3E"); }
+          .nav-icon-ajax { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10H7z'/%3E%3Cpath d='M7 12H3m18 0h-4M12 7V3m0 18v-4'/%3E%3C/svg%3E"); }
           .nav-icon-http { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M3 12h18'/%3E%3Cpath d='M12 3a15 15 0 0 1 0 18'/%3E%3Cpath d='M12 3a15 15 0 0 0 0 18'/%3E%3C/svg%3E"); }
           .nav-icon-database { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='5' rx='7' ry='3'/%3E%3Cpath d='M5 5v14c0 1.7 3.1 3 7 3s7-1.3 7-3V5'/%3E%3Cpath d='M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3'/%3E%3C/svg%3E"); }
           .nav-icon-cache { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23dce7f7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 4 7l8 4 8-4-8-4Z'/%3E%3Cpath d='m4 12 8 4 8-4'/%3E%3Cpath d='m4 17 8 4 8-4'/%3E%3C/svg%3E"); }
@@ -495,6 +622,7 @@ window.DopparProfiler = {
             font-size: 13px;
             font-weight: 800;
           }
+          .nav-count { margin-left: auto; min-width: 22px; padding: 2px 6px; border-radius: 999px; color: #2ab4b6; background: rgba(42,180,182,0.12); font-size: 11px; text-align: center; }
           .nav-button {
             appearance: none;
             border: 0;
@@ -2185,6 +2313,19 @@ window.DopparProfiler = {
             border: 1px dashed rgba(132,134,255,0.18);
           }
 
+          .live-ajax-list { display: grid; gap: 8px; }
+          .live-ajax-list { display: grid; gap: 8px; }
+          .live-ajax-item { display: block; padding: 10px 12px; border-radius: 12px; color: #596883; background: rgba(255,255,255,0.04); border: 1px solid rgba(132,134,255,0.12); font-size: 12px; }
+          .live-ajax-item:hover { border-color: rgba(15,139,141,0.35); color: #172033; }
+          .live-ajax-item strong { color: #0f8b8d; margin-right: 5px; }
+          .live-ajax-summary { display: flex; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+          .live-ajax-summary::-webkit-details-marker { display: none; }
+          .live-ajax-detail-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+          .live-ajax-detail-grid span { display: grid; gap: 3px; padding: 8px; border-radius: 8px; background: rgba(132,134,255,0.08); font-size: 10px; color: #6a7184; }
+          .live-ajax-detail-grid strong { margin: 0; color: #172033; font-size: 12px; word-break: break-word; }
+          .live-ajax-error { margin-top: 10px; padding: 9px; border-radius: 8px; color: #bf3c44; background: rgba(191,60,68,0.08); }
+          .live-ajax-payload { max-height: 180px; overflow: auto; margin: 10px 0 0; padding: 10px; border-radius: 8px; background: rgba(246,248,255,0.96); font: 11px/1.5 "Berkeley Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+
           .panel[data-theme="dark"] {
             color: #ebebf0;
             background: #09090B;
@@ -2264,6 +2405,12 @@ window.DopparProfiler = {
           .panel[data-theme="dark"] .json__value {
             color: #ebebf0;
           }
+          .panel[data-theme="dark"] .live-ajax-item { color: #888899; background: #0d0d10; border-color: rgba(255,255,255,0.08); }
+          .panel[data-theme="dark"] .live-ajax-item:hover { color: #ebebf0; }
+          .panel[data-theme="dark"] .live-ajax-item strong { color: #2ab4b6; }
+          .panel[data-theme="dark"] .live-ajax-detail-grid span { background: rgba(255,255,255,0.04); color: #888899; }
+          .panel[data-theme="dark"] .live-ajax-detail-grid strong { color: #ebebf0; }
+          .panel[data-theme="dark"] .live-ajax-payload { background: #18181B; color: #ebebf0; }
           .panel[data-theme="dark"] .theme-switch,
           .panel[data-theme="dark"] .hero-status,
           .panel[data-theme="dark"] .hero-request-copy {
@@ -3551,6 +3698,7 @@ window.DopparProfiler = {
                 <div class="nav-section-divider" aria-hidden="true"></div>
                 <div class="nav-section-label">Current Request</div>
                 <div class="nav-section-copy">Everything below is captured from the request currently open in this panel.</div>
+                <button class="nav-button" type="button" data-view="ajax"><span class="nav-main"><span class="nav-icon nav-icon-ajax"></span><span class="nav-label">AJAX</span><span class="nav-count" data-live-ajax-count>0</span></span></button>
                 <button class="nav-button" type="button" data-view="http"><span class="nav-main"><span class="nav-icon nav-icon-http"></span><span class="nav-label">HTTP</span></span></button>
                 <button class="nav-button" type="button" data-view="database"><span class="nav-main"><span class="nav-icon nav-icon-database"></span><span class="nav-label">Database</span></span></button>
                 <button class="nav-button" type="button" data-view="cache"><span class="nav-main"><span class="nav-icon nav-icon-cache"></span><span class="nav-label">Cache</span></span></button>
@@ -3571,6 +3719,9 @@ window.DopparProfiler = {
               </section>
               <section class="view-section" data-view-section="history">
                 ${historySection}
+              </section>
+              <section class="view-section" data-view-section="ajax">
+                <div class="section" data-live-ajax-shell></div>
               </section>
               <section class="view-section" data-view-section="http">
                 ${httpSection}
@@ -3756,6 +3907,7 @@ window.DopparProfiler = {
             const currentTimestamp = data.time_start ? Number(data.time_start) * 1000 : Date.now();
             const currentItem = {
               id: data.id,
+              is_ajax: data.is_ajax === true,
               method: data.method,
               route: data.route,
               status: data.status,
@@ -3770,6 +3922,7 @@ window.DopparProfiler = {
             items.forEach((item) => {
               const normalized = {
                 id: String(item?.id || ''),
+                is_ajax: item?.is_ajax === true,
                 method: String(item?.method || 'GET').toUpperCase(),
                 route: String(item?.route || '/'),
                 status: Number(item?.status || 0),
@@ -4358,6 +4511,11 @@ window.DopparProfiler = {
                 </div>
               </div>
             `;
+            this.liveAjaxContainers = [
+              overviewShell,
+              wrap.querySelector('[data-live-ajax-shell]'),
+            ].filter(Boolean);
+            this.liveAjaxContainers.forEach((container) => this.renderLiveAjaxSection(container));
           };
 
           renderRangeButtons();
@@ -4367,6 +4525,7 @@ window.DopparProfiler = {
               if(overviewShell) overviewShell.innerHTML = '<div class="no-data">Unable to load activity data.</div>';
               return;
             }
+            this.mergeAjaxHistory(history);
             historyDataset = buildCombinedHistory(history);
             renderOverviewDashboard();
             renderHistoryDashboard();
@@ -4433,3 +4592,73 @@ window.DopparProfiler = {
 };
 
 window.DopparProfiler.bindLayoutSync();
+
+(function installAjaxMonitor(profiler) {
+  if(!profiler || window.__dopparInsightAjaxMonitorInstalled){
+    return;
+  }
+  window.__dopparInsightAjaxMonitorInstalled = true;
+
+  const isProfilerRequest = (url) => String(url || '').includes('/_insight/');
+  const resolveUrl = (input) => {
+    if(typeof input === 'string'){
+      return input;
+    }
+    return input?.url || '';
+  };
+  const record = (entry) => {
+    if(!isProfilerRequest(entry.url)){
+      profiler.recordAjax(entry);
+      profiler.enrichAjax(entry);
+    }
+  };
+
+  if(typeof window.fetch === 'function'){
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (...args) => {
+      const url = resolveUrl(args[0]);
+      if(isProfilerRequest(url)){
+        return originalFetch(...args);
+      }
+      const started = performance.now();
+      try {
+        const response = await originalFetch(...args);
+        record({
+          url,
+          method: args[1]?.method || args[0]?.method || 'GET',
+          status: response.status,
+          duration: performance.now() - started,
+          id: response.headers.get('X-Insight-Request-Id') || '',
+        });
+        return response;
+      } catch(error) {
+        record({ url, method: args[1]?.method || 'GET', status: 0, duration: performance.now() - started, id: '' });
+        throw error;
+      }
+    };
+  }
+
+  const xhrOpen = XMLHttpRequest.prototype.open;
+  const xhrSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+    this.__dopparInsightAjax = { method: method || 'GET', url: String(url || '') };
+    return xhrOpen.call(this, method, url, ...rest);
+  };
+  XMLHttpRequest.prototype.send = function(...args) {
+    const request = this.__dopparInsightAjax;
+    if(!request || isProfilerRequest(request.url)){
+      return xhrSend.apply(this, args);
+    }
+    const started = performance.now();
+    this.addEventListener('loadend', () => {
+      record({
+        url: request.url,
+        method: request.method,
+        status: this.status,
+        duration: performance.now() - started,
+        id: this.getResponseHeader('X-Insight-Request-Id') || '',
+      });
+    }, { once: true });
+    return xhrSend.apply(this, args);
+  };
+})(window.DopparProfiler);

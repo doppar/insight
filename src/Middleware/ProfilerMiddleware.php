@@ -3,6 +3,7 @@
 namespace Doppar\Insight\Middleware;
 
 use Closure;
+use Doppar\Insight\Collectors\RequestCollector;
 use Doppar\Insight\Profiler;
 use Doppar\Insight\Support\ErrorHistoryRecorder;
 use Phaseolies\Http\Request;
@@ -43,6 +44,11 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
         }
 
         $profiler->stop($request, $response);
+
+        $response->headers->set('X-Insight-Request-Id', (string) ($profiler->getCurrentData()['id'] ?? ''));
+        if (RequestCollector::isAjax($request)) {
+            $response->headers->set('X-Insight-Ajax', 'true');
+        }
 
         // If this is a redirect, store the profiler data in session for the next request
         $status = $response->getStatusCode();
