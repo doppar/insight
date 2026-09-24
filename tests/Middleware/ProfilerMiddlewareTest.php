@@ -59,6 +59,11 @@ class ProfilerMiddlewareTest extends TestCase
             {
                 return '<div id="insight-toolbar"></div>';
             }
+
+            public function getCurrentData(): array
+            {
+                return ['id' => 'test-request-id'];
+            }
         });
         Container::setInstance($container);
 

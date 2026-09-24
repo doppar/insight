@@ -145,6 +145,9 @@ class AssetBuilderTest extends TestCase
         $this->assertStringContainsString('const redirectedQueries = redirectChain.flatMap', $toolbar);
         $this->assertStringContainsString('redirected-sql-list', $toolbar);
         $this->assertStringNotContainsString('redirect-chain-sql', $toolbar);
+        $this->assertStringContainsString('data-view="ajax"', $toolbar);
+        $this->assertStringContainsString('data-live-ajax-count', $toolbar);
+        $this->assertStringContainsString('installAjaxMonitor', $toolbar);
     }
 
     public function testGetLogoReturnsDataUri(): void
