@@ -1,5 +1,8 @@
 parameters:
     level: 8
+    # The framework's facade docblocks change between releases, so an ignore
+    # pattern below may match nothing on a newer framework. That is fine.
+    reportUnmatchedIgnoredErrors: false
     paths:
         - src
     excludePaths:

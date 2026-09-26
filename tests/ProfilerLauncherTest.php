@@ -174,9 +174,9 @@ class ProfilerLauncherTest extends TestCase
         $router = new class {
             public int $calls = 0;
 
-            public function applyMiddleware($middleware): void
+            public function pushGlobalMiddleware(string $middleware): void
             {
-                if (! $middleware instanceof ProfilerMiddleware) {
+                if ($middleware !== ProfilerMiddleware::class) {
                     throw new \RuntimeException('Unexpected middleware type.');
                 }
 
