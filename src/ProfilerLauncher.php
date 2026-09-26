@@ -18,10 +18,9 @@ class ProfilerLauncher extends ServiceLauncher
     {
         $this->mergeConfig(__DIR__ . '/../config/insight.php', 'insight');
 
-        if (! $this->isEnabled()) {
-            return;
-        }
-
+        // Always bind the configured profiler, even when disabled. The global
+        // middleware may be listed in the app Gateway, and without this binding
+        // it would resolve a default Profiler that auto-enables in local env.
         $this->registerSanitizer();
         $this->registerProfiler();
     }
@@ -125,16 +124,11 @@ class ProfilerLauncher extends ServiceLauncher
 
         $router = app('route');
 
-        // Since 4.x the router no longer extends the HTTP kernel, so the
-        // global middleware chain lives on the gateway it depends on.
-        $gateway = is_object($router) && method_exists($router, 'getGateway')
-            ? $router->getGateway()
-            : $router;
-
-        if (is_object($gateway) && method_exists($gateway, 'applyMiddleware')) {
-            $gateway->applyMiddleware(
-                app(\Doppar\Insight\Middleware\ProfilerMiddleware::class)
-            );
+        // The router builds the global middleware chain per request from the
+        // gateway's list plus whatever launchers push onto it. Pushing is a
+        // no-op if the app's Gateway already lists the middleware.
+        if (is_object($router) && method_exists($router, 'pushGlobalMiddleware')) {
+            $router->pushGlobalMiddleware(\Doppar\Insight\Middleware\ProfilerMiddleware::class);
             self::$middlewareRegistered = true;
         }
     }
