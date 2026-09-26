@@ -43,13 +43,29 @@ class AuthCollector implements CollectorInterface
                     $this->data['user_email'] = $user->email ?? null;
 
                     // Store safe user data (excluding sensitive fields)
-                    $userData = is_object($user) && method_exists($user, 'toArray') ? $user->toArray() : (array) $user;
-                    $this->data['user'] = $this->sanitizer()->sanitize($userData);
+                    $this->data['user'] = $this->sanitizer()->sanitize($this->userData($user));
                 }
             }
         } catch (\Exception $e) {
             // Silently fail if Auth facade is not available or throws an error
         }
+    }
+
+    /**
+     * Turn the authenticated user into an array.
+     *
+     * @param mixed $user
+     * @return array<string, mixed>
+     */
+    private function userData(mixed $user): array
+    {
+        if (is_object($user) && method_exists($user, 'toArray')) {
+            $data = $user->toArray();
+
+            return is_array($data) ? $data : [];
+        }
+
+        return (array) $user;
     }
 
     public function stop(Request $request, Response $response): void
