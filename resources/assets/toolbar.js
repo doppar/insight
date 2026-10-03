@@ -109,9 +109,12 @@ window.DopparProfiler = {
     this.updateAjaxIndicators();
     this.liveAjaxContainers.forEach((container) => this.renderLiveAjaxSection(container));
   },
-  mergeAjaxHistory(history){
+  mergeAjaxHistory(history, page){
+    const pageStart = Math.floor(Number(page?.time_start || 0));
+    const pagePath = this.normalizePath(window.location.pathname);
     (Array.isArray(history) ? history : [])
       .filter((item) => item.is_ajax === true)
+      .filter((item) => this.ajaxBelongsToPage(item, pageStart, pagePath))
       .forEach((item) => this.recordAjax({
         id: String(item.id || ''),
         method: item.method || 'GET',
@@ -120,6 +123,27 @@ window.DopparProfiler = {
         duration: Number(item.duration_ms || 0),
         profile: item.profile || null,
       }));
+  },
+  // The history holds every request of the application, so an AJAX call only belongs to this
+  // page if it was made after the page was requested and, when the browser sent a Referer,
+  // from this page.
+  ajaxBelongsToPage(item, pageStart, pagePath){
+    const startedAt = Number(item?.captured_at_unix || 0);
+    if(pageStart > 0 && startedAt > 0 && startedAt < pageStart){
+      return false;
+    }
+    if(item?.referer){
+      try {
+        return this.normalizePath(new URL(item.referer, window.location.href).pathname) === pagePath;
+      } catch (error) {
+        return true;
+      }
+    }
+    return true;
+  },
+  normalizePath(path){
+    const trimmed = String(path || '/').replace(/\/+$/, '');
+    return trimmed === '' ? '/' : trimmed;
   },
   enrichAjax(entry){
     if(!entry?.id){
@@ -4525,7 +4549,7 @@ window.DopparProfiler = {
               if(overviewShell) overviewShell.innerHTML = '<div class="no-data">Unable to load activity data.</div>';
               return;
             }
-            this.mergeAjaxHistory(history);
+            this.mergeAjaxHistory(history, data);
             historyDataset = buildCombinedHistory(history);
             renderOverviewDashboard();
             renderHistoryDashboard();
