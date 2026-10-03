@@ -5,6 +5,7 @@ namespace Doppar\Insight\Cache;
 use Doppar\Insight\Collectors\CacheCollector;
 use Phaseolies\Cache\CacheStore;
 use Phaseolies\Cache\Lock\AtomicLock;
+use Phaseolies\Cache\TaggedCache;
 use Symfony\Component\Cache\Adapter\AdapterInterface;
 
 class ProfilerCacheStore extends CacheStore
@@ -12,6 +13,13 @@ class ProfilerCacheStore extends CacheStore
     protected string $storeName;
 
     protected ?string $storeDriver;
+
+    /**
+     * Other stores, wrapped so that what happens in them is profiled too.
+     *
+     * @var array<string, self>
+     */
+    protected array $profiledStores = [];
 
     public function __construct(
         AdapterInterface $adapter,
@@ -188,6 +196,96 @@ class ProfilerCacheStore extends CacheStore
         return $result;
     }
 
+    /**
+     * stash(), stashForever() and stashWhen() read and write through the adapter in one
+     * step, so none of the methods above run. Record what happened as the reads and
+     * writes it amounts to: a read that hit, or a read that missed followed by a write.
+     */
+    protected function remember(string $key, ?int $seconds, \Closure $callback): mixed
+    {
+        $missed = false;
+
+        $value = parent::remember($key, $seconds, function () use ($callback, &$missed) {
+            $missed = true;
+
+            return $callback();
+        });
+
+        if (! $missed) {
+            $this->recordOperation('get', $key, $value, true, $this->itemMetadataForKey($key));
+
+            return $value;
+        }
+
+        $this->recordOperation('get', $key, null, false);
+        $this->recordOperation($seconds === null ? 'forever' : 'set', $key, $value, false, $this->ttlMetadata($seconds));
+
+        return $value;
+    }
+
+    public function pull($key, $default = null): mixed
+    {
+        $missing = new \stdClass();
+        $value = parent::pull($key, $missing);
+        $hit = $value !== $missing;
+
+        $this->recordOperation('get', (string) $key, $hit ? $value : $default, $hit);
+
+        if ($hit) {
+            $this->recordOperation('forget', (string) $key, null, false);
+        }
+
+        return $hit ? $value : $default;
+    }
+
+    /**
+     * A tagged cache whose reads, writes and flushes are recorded with their tags.
+     *
+     * @param string|array<int, string> $names
+     */
+    public function tags(string|array $names): TaggedCache
+    {
+        // Throws when the adapter cannot keep tagged items.
+        $tagged = parent::tags($names);
+        $pool = $this->taggedPool();
+
+        return $pool === null ? $tagged : new ProfilerTaggedCache($this, $pool, $tagged->getTags());
+    }
+
+    /**
+     * Another store from the cache config, profiled like this one.
+     */
+    public function store(?string $name = null): CacheStore
+    {
+        $store = parent::store($name);
+
+        if ($store === $this || $store instanceof self) {
+            return $store;
+        }
+
+        return $this->profiledStores[(string) $name] ??= (new self($store->getAdapter(), $store->getPrefix(), $name))
+            ->inheritSettingsFrom($store);
+    }
+
+    /**
+     * Record an operation of a tagged cache.
+     *
+     * @param array<int, string> $tags
+     */
+    public function recordTagged(
+        string $type,
+        string $key,
+        mixed $value,
+        bool $hit,
+        array $tags,
+        bool $withTtl = false,
+        ?int $ttlSeconds = null
+    ): void {
+        $meta = $withTtl ? $this->ttlMetadata($ttlSeconds) : [];
+
+        $this->recordOperation($type, $key, $value, $hit, array_merge($meta, ['tags' => $tags]));
+    }
+
     public function locked(string $name, int $seconds = 10, ?string $owner = null): AtomicLock
     {
         $this->recordOperation('lock_prepare', $name, null, false, [
@@ -312,7 +410,12 @@ class ProfilerCacheStore extends CacheStore
 
     protected function resolveStoreDriver(string $storeName): ?string
     {
-        $driver = config("caching.stores.{$storeName}.driver");
+        // The driver is only a label in the toolbar, so an unavailable config must not break caching.
+        try {
+            $driver = config("caching.stores.{$storeName}.driver");
+        } catch (\Throwable) {
+            return null;
+        }
 
         return is_string($driver) ? $driver : null;
     }
