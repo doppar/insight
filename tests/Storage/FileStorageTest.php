@@ -254,6 +254,32 @@ class FileStorageTest extends TestCase
         $this->assertSame('first', $recent[1]['id']);
     }
 
+    public function testRecentSummariesCarryTheRefererSoAnAjaxCallCanBeTiedToItsPage(): void
+    {
+        $this->storage->put('ajax', [
+            'id' => 'ajax',
+            'method' => 'GET',
+            'route' => '/users/10/edit',
+            'status' => 200,
+            'is_ajax' => true,
+            'time_start' => 300,
+            'request_server' => ['PATH' => '/users/10/edit', 'REFERER' => 'http://app.test/users'],
+        ]);
+        $this->storage->put('direct', [
+            'id' => 'direct',
+            'method' => 'GET',
+            'route' => '/home',
+            'status' => 200,
+            'time_start' => 100,
+        ]);
+
+        $recent = array_column($this->storage->recent(), null, 'id');
+
+        $this->assertSame('http://app.test/users', $recent['ajax']['referer']);
+        $this->assertTrue($recent['ajax']['is_ajax']);
+        $this->assertNull($recent['direct']['referer'], 'a request sent without a Referer has none');
+    }
+
     public function testRecentRespectsLimitAndUsesTotalDurationWhenPresent(): void
     {
         $this->storage->put('one', [
