@@ -25,12 +25,11 @@ class SessionCollector implements CollectorInterface
             'session_data' => [],
         ];
 
-        if (isset($_SESSION)) {
-            $sessionData = $_SESSION;
-            unset($sessionData['password'], $sessionData['_token']);
-            $sanitizer = $this->sanitizer();
-            $this->data['session_data'] = $sanitizer->sanitize($sessionData);
-        }
+        $sessionData = $request->session()->all();
+        unset($sessionData['password'], $sessionData['_token']);
+
+        $sanitizer = $this->sanitizer();
+        $this->data['session_data'] = $sanitizer->sanitize($sessionData);
     }
 
     public function stop(Request $request, Response $response): void

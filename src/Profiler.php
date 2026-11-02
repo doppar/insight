@@ -180,7 +180,7 @@ class Profiler
         ];
 
         // Get and store redirect chain with the profiler data (don't clear session yet)
-        $redirectChain = $this->getRedirectChain(false);
+        $redirectChain = $this->getRedirectChain(false, $request);
         if (! empty($redirectChain)) {
             $this->data['redirect_chain'] = $redirectChain;
 
@@ -252,21 +252,47 @@ class Profiler
     }
 
     /**
+     * The profiles of the redirects that led to this request.
+     *
      * @return array<int, mixed>
      */
-    public function getRedirectChain(bool $clear = false): array
+    public function getRedirectChain(bool $clear = false, ?Request $request = null): array
     {
-        if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION)) {
-            $chain = $_SESSION['_insight_redirect_chain'] ?? [];
-            // Clear the chain only if requested
-            if ($clear) {
-                unset($_SESSION['_insight_redirect_chain']);
-            }
+        $session = ($request ?? request())->session();
 
-            return $chain;
+        $stored = $session->get('_insight_redirect_chain', []);
+
+        // Clear the chain only if requested
+        if ($clear) {
+            $session->forget('_insight_redirect_chain');
         }
 
-        return [];
+        $chain = [];
+
+        foreach (is_array($stored) ? $stored : [] as $entry) {
+            $hop = is_string($entry)
+                ? (self::$storage[$entry] ?? $this->loadProfile($entry))
+                : $entry;
+
+            if (is_array($hop)) {
+                unset($hop['redirect_chain']);
+                $chain[] = $hop;
+            }
+        }
+
+        return $chain;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function loadProfile(string $id): ?array
+    {
+        try {
+            return $this->storageDriver->get($id);
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     public function shouldInject(Response $response): bool
