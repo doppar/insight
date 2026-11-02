@@ -25,7 +25,12 @@ class SessionCollector implements CollectorInterface
             'session_data' => [],
         ];
 
-        $sessionData = $request->session()->all();
+        try {
+            $sessionData = $request->session()->all();
+        } catch (\Throwable) {
+            $sessionData = [];
+        }
+
         unset($sessionData['password'], $sessionData['_token']);
 
         $sanitizer = $this->sanitizer();
