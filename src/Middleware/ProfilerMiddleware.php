@@ -54,9 +54,20 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
         $status = $response->getStatusCode();
         if ($status >= 300 && $status < 400) {
             $redirectData = $profiler->getCurrentData();
-            if (session_status() === PHP_SESSION_ACTIVE || @session_start()) {
-                $_SESSION['_insight_redirect_chain'] = $_SESSION['_insight_redirect_chain'] ?? [];
-                $_SESSION['_insight_redirect_chain'][] = $redirectData;
+            // Only the request id goes into the session. The full profile is
+            // already persisted by the profiler and is looked up by id on the
+            // next request, so the session stays small enough for drivers that
+            // keep it in a cookie.
+            $id = (string) ($redirectData['id'] ?? '');
+
+            if ($id !== '') {
+                $session = $request->session();
+                $chain = array_values(array_filter(
+                    (array) $session->get('_insight_redirect_chain', []),
+                    'is_string'
+                ));
+                $chain[] = $id;
+                $session->put('_insight_redirect_chain', array_slice($chain, -10));
             }
         }
 
@@ -71,9 +82,7 @@ class ProfilerMiddleware implements \Phaseolies\Middleware\Contracts\Middleware
 
             // Clear redirect chain from session after rendering toolbar
             // (it's already saved in profiler data)
-            if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION)) {
-                unset($_SESSION['_insight_redirect_chain']);
-            }
+            $request->session()->forget('_insight_redirect_chain');
         }
 
         return $response;
