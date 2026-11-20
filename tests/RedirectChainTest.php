@@ -7,6 +7,7 @@ namespace Doppar\Insight\Tests;
 use Doppar\Insight\Contracts\StorageInterface;
 use Doppar\Insight\Middleware\ProfilerMiddleware;
 use Doppar\Insight\Profiler;
+use Doppar\Insight\Tests\Support\TestContainer;
 use Phaseolies\DI\Container;
 
 class RedirectChainTest extends TestCase
@@ -76,7 +77,7 @@ class RedirectChainTest extends TestCase
 
     public function testTheMiddlewareKeepsOnlyTheRequestIdOfARedirectInTheSession(): void
     {
-        $container = new Container();
+        $container = new TestContainer();
         $container->instance(Profiler::class, new class
         {
             public function isEnabledFor($request): bool

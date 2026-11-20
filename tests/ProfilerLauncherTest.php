@@ -13,6 +13,7 @@ use Doppar\Insight\Middleware\ProfilerMiddleware;
 use Doppar\Insight\Profiler;
 use Doppar\Insight\ProfilerLauncher;
 use Doppar\Insight\Support\ErrorHistoryRecorder;
+use Doppar\Insight\Tests\Support\TestContainer;
 use Phaseolies\Application;
 use Phaseolies\DI\Container;
 use Phaseolies\Http\Exceptions\NotFoundHttpException;
@@ -49,6 +50,9 @@ class ProfilerLauncherTest extends TestCase
             ->disableOriginalConstructor()
             ->onlyMethods(['terminating'])
             ->getMock();
+
+        // The constructor is skipped, so give the app the root the path helpers need.
+        (new \ReflectionProperty(Application::class, 'basePath'))->setValue($app, TestContainer::root());
 
         $app->expects($this->once())
             ->method('terminating')

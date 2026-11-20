@@ -4,12 +4,42 @@ declare(strict_types=1);
 
 namespace Doppar\Insight\Tests;
 
+use Doppar\Insight\Tests\Support\TestContainer;
+use Phaseolies\DI\Container;
 use Phaseolies\Http\Request;
 use Phaseolies\Http\Response;
+use Phaseolies\Session\SessionManager;
+use Phaseolies\Session\Stores\ArrayStore;
 use PHPUnit\Framework\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * Give every test a container that resolves paths and an in-memory session
+     *
+     * @return void
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Container::setInstance(new TestContainer());
+        SessionManager::useStore(new ArrayStore(7200));
+    }
+
+    /**
+     * Drop the session store and container so no state leaks into the next test
+     *
+     * @return void
+     */
+    protected function tearDown(): void
+    {
+        SessionManager::useStore(null);
+        Container::forgetInstance();
+
+        parent::tearDown();
+    }
+
     /**
      * Create a real Request instance for testing
      */
