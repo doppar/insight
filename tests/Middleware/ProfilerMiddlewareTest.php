@@ -11,30 +11,20 @@ use Doppar\Insight\Collectors\ResponseCollector;
 use Doppar\Insight\Collectors\TimeMemoryCollector;
 use Doppar\Insight\Profiler;
 use Doppar\Insight\Tests\TestCase;
+use Doppar\Insight\Tests\Support\TestContainer;
 use Phaseolies\DI\Container;
 use Phaseolies\Http\Response;
+use Phaseolies\Session\SessionManager;
+use Phaseolies\Session\Stores\ArrayStore;
 
 class ProfilerMiddlewareTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
-        }
-        $_SESSION = [];
-        Container::forgetInstance();
-
-        parent::tearDown();
-    }
-
     public function testHtmlInjectionDoesNotStartSessionWhenNoRedirectChainExists(): void
     {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            session_destroy();
-        }
-        $_SESSION = [];
+        $store = new ArrayStore(7200);
+        SessionManager::useStore($store);
 
-        $container = new Container();
+        $container = new TestContainer();
         $container->instance(Profiler::class, new class
         {
             public function isEnabledFor($request): bool
@@ -73,7 +63,10 @@ class ProfilerMiddlewareTest extends TestCase
 
         $result = $middleware($request, fn () => $response);
 
-        $this->assertSame(PHP_SESSION_NONE, session_status());
+        $request->session()->commit($result);
+
+        $this->assertSame(0, $store->flush(), 'No session should be persisted for a visitor without one.');
+        $this->assertSame([], $result->headers->getCookies(), 'No session cookie should be sent.');
         $this->assertStringContainsString('<div id="insight-toolbar"></div></body>', (string) $result->body);
     }
 
@@ -110,7 +103,7 @@ class ProfilerMiddlewareTest extends TestCase
         $profiler->addCollector(new ResponseCollector());
         $profiler->addCollector(new TimeMemoryCollector());
 
-        $container = new Container();
+        $container = new TestContainer();
         $container->instance(Profiler::class, $profiler);
         Container::setInstance($container);
 
